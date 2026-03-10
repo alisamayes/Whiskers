@@ -1,57 +1,62 @@
 
 
-def detect_bruteforce(df):
+class Mäuschen_Detective_Tools:
+    def __init__(self):
+        pass
 
-    failed = df[
-        (df["path"] == "/login") &
-        (df["status"] == 401)
-    ].copy()
+    
+    def detect_bruteforce(self,df):
 
-    failed = failed.set_index("timestamp")
+        failed = df[
+            (df["path"] == "/login") &
+            (df["status"] == 401)
+        ].copy()
 
-    attempts = failed.groupby("ip").resample("1min").size()
+        failed = failed.set_index("timestamp")
 
-    alerts = attempts[attempts > 10]
+        attempts = failed.groupby("ip").resample("1min").size()
 
-    return alerts
+        alerts = attempts[attempts > 10]
 
-
-
-def detect_scanning(df):
-
-    # Look for IPs with many 404 errors on different paths in a short time
-    failed_requests = df[df["status"] == 404].copy()
-    failed_requests = failed_requests.set_index("timestamp")
-
-    # Group by IP and resample to 30 seconds, count unique paths with 404
-    path_counts = failed_requests.groupby("ip").resample("30s")["path"].nunique()
-
-    # Alert if more than 4 unique 404 paths in 30 seconds
-    alerts = path_counts[path_counts > 4]
-
-    return alerts
+        return alerts
 
 
 
-def detect_request_flood(df):
+    def detect_scanning(self,df):
 
-    df = df.sort_values("timestamp")
-    df = df.set_index("timestamp")
+        # Look for IPs with many 404 errors on different paths in a short time
+        failed_requests = df[df["status"] == 404].copy()
+        failed_requests = failed_requests.set_index("timestamp")
 
-    alerts = []
+        # Group by IP and resample to 30 seconds, count unique paths with 404
+        path_counts = failed_requests.groupby("ip").resample("30s")["path"].nunique()
 
-    for ip, group in df.groupby("ip"):
+        # Alert if more than 4 unique 404 paths in 30 seconds
+        alerts = path_counts[path_counts > 4]
 
-        rolling_counts = group["path"].rolling("60s").count()
+        return alerts
 
-        flood_points = rolling_counts[rolling_counts > 100]
 
-        last_alert_time = None
 
-        for time, count in flood_points.items():
+    def detect_request_flood(self,df):
 
-            if last_alert_time is None or (time - last_alert_time).total_seconds() > 60:
-                alerts.append((ip, time, int(count)))
-                last_alert_time = time
+        df = df.sort_values("timestamp")
+        df = df.set_index("timestamp")
 
-    return alerts
+        alerts = []
+
+        for ip, group in df.groupby("ip"):
+
+            rolling_counts = group["path"].rolling("60s").count()
+
+            flood_points = rolling_counts[rolling_counts > 100]
+
+            last_alert_time = None
+
+            for time, count in flood_points.items():
+
+                if last_alert_time is None or (time - last_alert_time).total_seconds() > 60:
+                    alerts.append((ip, time, int(count)))
+                    last_alert_time = time
+
+        return alerts

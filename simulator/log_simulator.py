@@ -5,14 +5,28 @@ IPS_NORMAL = [
     "192.168.1.10",
     "192.168.1.20",
     "10.0.0.5",
-    "172.16.0.4"
+    "172.16.0.4",
+    "192.168.1.15",
+    "10.0.0.10",
+    "172.16.0.8",
+    "203.0.113.5",
+    "192.168.0.100",
+    "10.10.10.1"
 ]
 
 IPS_ATTACK = [
     "185.23.54.2",
     "45.33.22.11",
     "91.200.12.55",
-    "103.44.12.9"
+    "103.44.12.9",
+    "185.220.101.1",
+    "45.67.89.12",
+    "91.134.56.78",
+    "103.78.90.123",
+    "198.51.100.1",
+    "203.0.113.10",
+    "104.244.42.65",
+    "185.199.108.133"
 ]
 
 PATHS_NORMAL = [
@@ -21,7 +35,16 @@ PATHS_NORMAL = [
     "/about",
     "/contact",
     "/login",
-    "/dashboard"
+    "/dashboard",
+    "/home",
+    "/blog",
+    "/api/v1/users",
+    "/search",
+    "/cart",
+    "/checkout",
+    "/profile",
+    "/settings",
+    "/help"
 ]
 
 SCAN_PATHS = [
@@ -30,14 +53,31 @@ SCAN_PATHS = [
     "/admin/config",
     "/backup",
     "/.env",
-    "/phpmyadmin"
+    "/phpmyadmin",
+    "/wp-admin",
+    "/wp-login.php",
+    "/config.php",
+    "/server-status",
+    "/.git/config",
+    "/xmlrpc.php",
+    "/.htaccess",
+    "/phpinfo.php",
+    "/test.php"
 ]
 
 USER_AGENTS = [
     "Mozilla/5.0",
     "Chrome/120.0",
     "Safari/17",
-    "curl/7.68"
+    "curl/7.68",
+    "Firefox/120.0",
+    "Edge/120.0",
+    "Opera/90.0",
+    "PostmanRuntime/7.32.3",
+    "python-requests/2.28.1",
+    "Go-http-client/1.1",
+    "Wget/1.21.3",
+    "Java/11.0.18"
 ]
 
 
@@ -45,7 +85,7 @@ def generate_normal_request(time):
 
     ip = random.choice(IPS_NORMAL)
     path = random.choice(PATHS_NORMAL)
-    status = random.choice([200, 200, 200, 404])
+    status = random.choice([200, 200, 200, 200, 200, 404])
     agent = random.choice(USER_AGENTS)
 
     log = f'{ip} - - [{time}] "GET {path} HTTP/1.1" {status} 1234 "{agent}" normal'
@@ -57,7 +97,7 @@ def brute_force_attack(ip, current_time, count):
 
     logs = []
 
-    for i in range(30):
+    for i in range(5,40):
 
         time = current_time.strftime("%d/%b/%Y:%H:%M:%S")
 
@@ -104,7 +144,7 @@ def request_flood(ip, current_time, count):
     return logs
 
 
-def generate_logs():
+def generate_logs(size=2000):
 
     bf_count = 0
     scan_count = 0
@@ -116,7 +156,7 @@ def generate_logs():
 
     with open("data/access.log", "w") as f:
 
-        for i in range(2000):
+        for i in range(size):
 
             # occasional attack events
             attack_chance = random.random()

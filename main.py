@@ -7,71 +7,7 @@
 # Parse logs
 
 import sys
-from parser.log_parser import parse_logs
-from analysis.threat_detection import *
-from simulator.log_simulator import generate_logs
-
-class Whiskers:
-    def __init__(self):
-        self.mode = "normal"
-        self.check = False
-
-whiskers = Whiskers()
-
-mode = "normal"
-check = False
-gen_new = False
+from whiskers import Whiskers
 
 
-if len(sys.argv) > 1:
-    for arg in sys.argv[1:]:
-        if arg in ("-h", "--help"):
-            print("Usage: python main.py [options]")
-            print("Options:")
-            print("  -v, --verbose   Enable verbose output")
-            print("  -h, --help      Show this help message")
-            sys.exit(0)
-
-        elif arg in ("-v", "--verbose"):
-            mode = "verbose"
-        
-        elif arg in ("-g", "--generate"):
-            print("Generating logs...")
-            gen_new = True
-
-        elif arg in ("-c", "--check"):
-            check = True
-        
-        else:
-            print("Unknown argument:", arg, " use -v or --verbose for verbose mode")
-
-
-if gen_new:
-    bfs, scs, fls = generate_logs()
-    print(f"Generated logs with {bfs} brute force attacks, {scs} directory scans, and {fls} request floods.")
-
-df = parse_logs("data/access.log")
-
-brute = detect_bruteforce(df)
-
-if mode == "verbose":
-    for (ip, time), count in brute.items():
-        print("⚠ Brute force detected:", ip, time, count)
-else:
-    print("Brute force attempts detected:", len(brute))
-
-scan = detect_scanning(df)
-
-if mode == "verbose":
-    for ip, count in scan.items():
-        print("⚠ Directory scan detected:", ip, count)
-else:
-    print("Directory scans detected:", len(scan))
-
-flood = detect_request_flood(df)
-
-if mode == "verbose":
-    for ip, time, count in flood:
-        print("⚠ Request flood detected:", ip, time, count)
-else:
-    print("Request floods detected:", len(flood))
+whiskers = Whiskers(sys.argv[1:])
