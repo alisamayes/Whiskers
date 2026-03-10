@@ -19,11 +19,15 @@ def detect_bruteforce(df):
 
 def detect_scanning(df):
 
-    df = df.set_index("timestamp")
+    # Look for IPs with many 404 errors on different paths in a short time
+    failed_requests = df[df["status"] == 404].copy()
+    failed_requests = failed_requests.set_index("timestamp")
 
-    path_counts = df.groupby("ip").resample("1min")["path"].nunique()
+    # Group by IP and resample to 30 seconds, count unique paths with 404
+    path_counts = failed_requests.groupby("ip").resample("30s")["path"].nunique()
 
-    alerts = path_counts[path_counts > 5]
+    # Alert if more than 4 unique 404 paths in 30 seconds
+    alerts = path_counts[path_counts > 4]
 
     return alerts
 

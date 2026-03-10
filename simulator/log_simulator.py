@@ -48,12 +48,12 @@ def generate_normal_request(time):
     status = random.choice([200, 200, 200, 404])
     agent = random.choice(USER_AGENTS)
 
-    log = f'{ip} - - [{time}] "GET {path} HTTP/1.1" {status} 1234 "{agent}"'
+    log = f'{ip} - - [{time}] "GET {path} HTTP/1.1" {status} 1234 "{agent}" normal'
 
     return log
 
 
-def brute_force_attack(ip, current_time):
+def brute_force_attack(ip, current_time, count):
 
     logs = []
 
@@ -62,7 +62,7 @@ def brute_force_attack(ip, current_time):
         time = current_time.strftime("%d/%b/%Y:%H:%M:%S")
 
         logs.append(
-            f'{ip} - - [{time}] "POST /login HTTP/1.1" 401 532 "curl/7.68"'
+            f'{ip} - - [{time}] "POST /login HTTP/1.1" 401 532 "curl/7.68" brute_force {count}'
         )
 
         current_time += datetime.timedelta(seconds=1)
@@ -70,7 +70,7 @@ def brute_force_attack(ip, current_time):
     return logs
 
 
-def directory_scan(ip, current_time):
+def directory_scan(ip, current_time, count):
 
     logs = []
 
@@ -79,14 +79,14 @@ def directory_scan(ip, current_time):
         time = current_time.strftime("%d/%b/%Y:%H:%M:%S")
 
         logs.append(
-            f'{ip} - - [{time}] "GET {path} HTTP/1.1" 404 532 "curl/7.68"'
+            f'{ip} - - [{time}] "GET {path} HTTP/1.1" 404 532 "curl/7.68" directory_scan {count}'
         )
-
+        
         current_time += datetime.timedelta(seconds=2)
-
+    
     return logs
 
-def request_flood(ip, current_time):
+def request_flood(ip, current_time, count):
 
     logs = []
 
@@ -96,7 +96,7 @@ def request_flood(ip, current_time):
         time = current_time.strftime("%d/%b/%Y:%H:%M:%S")
 
         logs.append(
-            f'{ip} - - [{time}] "GET {path} HTTP/1.1" 200 1234 "curl/7.68"'
+            f'{ip} - - [{time}] "GET {path} HTTP/1.1" 200 1234 "curl/7.68" request_flood {count}'
         )
 
         current_time += datetime.timedelta(milliseconds=200)
@@ -105,6 +105,10 @@ def request_flood(ip, current_time):
 
 
 def generate_logs():
+
+    bf_count = 0
+    scan_count = 0
+    flood_count = 0
 
     start_time = datetime.datetime.now()
 
@@ -122,8 +126,10 @@ def generate_logs():
                 #print("Generating brute force attack logs...    ")
                 logs = brute_force_attack(
                     random.choice(IPS_ATTACK),
-                    current_time
+                    current_time,
+                    bf_count
                 )
+                bf_count += 1
 
                 for log in logs:
                     f.write(log + "\n")
@@ -133,8 +139,10 @@ def generate_logs():
                 #print("Generating directory scan logs...    ")
                 logs = directory_scan(
                     random.choice(IPS_ATTACK),
-                    current_time
+                    current_time,
+                    scan_count
                 )
+                scan_count += 1
 
                 for log in logs:
                     f.write(log + "\n")
@@ -146,8 +154,10 @@ def generate_logs():
                 flood_ip = random.choice(IPS_ATTACK)
                 logs = request_flood(
                     flood_ip,
-                    current_time
+                    current_time,
+                    flood_count
                 )
+                flood_count += 1
 
                 for log in logs:
                     f.write(log + "\n")
@@ -164,6 +174,8 @@ def generate_logs():
             current_time += datetime.timedelta(
                 seconds=random.randint(1,5)
             )
+
+    return bf_count, scan_count, flood_count
 
 
 if __name__ == "__main__":

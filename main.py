@@ -11,7 +11,18 @@ from parser.log_parser import parse_logs
 from analysis.threat_detection import *
 from simulator.log_simulator import generate_logs
 
+class Whiskers:
+    def __init__(self):
+        self.mode = "normal"
+        self.check = False
+
+whiskers = Whiskers()
+
 mode = "normal"
+check = False
+gen_new = False
+
+
 if len(sys.argv) > 1:
     for arg in sys.argv[1:]:
         if arg in ("-h", "--help"):
@@ -26,15 +37,20 @@ if len(sys.argv) > 1:
         
         elif arg in ("-g", "--generate"):
             print("Generating logs...")
-            generate_logs()
+            gen_new = True
+
+        elif arg in ("-c", "--check"):
+            check = True
         
         else:
             print("Unknown argument:", arg, " use -v or --verbose for verbose mode")
 
 
+if gen_new:
+    bfs, scs, fls = generate_logs()
+    print(f"Generated logs with {bfs} brute force attacks, {scs} directory scans, and {fls} request floods.")
+
 df = parse_logs("data/access.log")
-if mode == "verbose":
-    print("Loaded logs:", len(df))
 
 brute = detect_bruteforce(df)
 
