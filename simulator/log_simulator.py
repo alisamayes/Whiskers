@@ -47,6 +47,21 @@ PATHS_NORMAL = [
     "/help"
 ]
 
+SQLI_PATTERNS = [
+    "/search?q=' OR 1=1 --",
+    "/search?q=\" OR \"1\"=\"1",
+    "/login?user=admin'--",
+    "/products?id=1 UNION SELECT username, password FROM users",
+    "/items?id=1; DROP TABLE users",
+]
+
+EXFIL_PATHS = [
+    "/backup/full-backup.tar.gz",
+    "/exports/users.csv",
+    "/reports/financial-q4.pdf",
+    "/db/dump.sql",
+]
+
 SCAN_PATHS = [
     "/admin",
     "/admin/login",
@@ -87,8 +102,10 @@ def generate_normal_request(time):
     path = random.choice(PATHS_NORMAL)
     status = random.choice([200, 200, 200, 200, 200, 404])
     agent = random.choice(USER_AGENTS)
+    # simulate different response sizes (in bytes)
+    bytes_sent = random.randint(300, 5000)
 
-    log = f'{ip} - - [{time}] "GET {path} HTTP/1.1" {status} 1234 "{agent}" normal'
+    log = f'{ip} - - [{time}] "GET {path} HTTP/1.1" {status} {bytes_sent} "{agent}" normal'
 
     return log
 
@@ -101,8 +118,10 @@ def brute_force_attack(ip, current_time, count):
 
         time = current_time.strftime("%d/%b/%Y:%H:%M:%S")
 
+        # failed login responses are usually small-ish
+        bytes_sent = random.randint(300, 1500)
         logs.append(
-            f'{ip} - - [{time}] "POST /login HTTP/1.1" 401 532 "curl/7.68" brute_force {count}'
+            f'{ip} - - [{time}] "POST /login HTTP/1.1" 401 {bytes_sent} "curl/7.68" brute_force {count}'
         )
 
         current_time += datetime.timedelta(seconds=1)
@@ -118,8 +137,9 @@ def directory_scan(ip, current_time, count):
 
         time = current_time.strftime("%d/%b/%Y:%H:%M:%S")
 
+        bytes_sent = random.randint(300, 2000)
         logs.append(
-            f'{ip} - - [{time}] "GET {path} HTTP/1.1" 404 532 "curl/7.68" directory_scan {count}'
+            f'{ip} - - [{time}] "GET {path} HTTP/1.1" 404 {bytes_sent} "curl/7.68" directory_scan {count}'
         )
         
         current_time += datetime.timedelta(seconds=2)
@@ -134,12 +154,53 @@ def request_flood(ip, current_time, count):
 
         path = random.choice(PATHS_NORMAL)
         time = current_time.strftime("%d/%b/%Y:%H:%M:%S")
-
+        # lots of requests, size may vary moderately
+        bytes_sent = random.randint(300, 4000)
         logs.append(
-            f'{ip} - - [{time}] "GET {path} HTTP/1.1" 200 1234 "curl/7.68" request_flood {count}'
+            f'{ip} - - [{time}] "GET {path} HTTP/1.1" 200 {bytes_sent} "curl/7.68" request_flood {count}'
         )
 
         current_time += datetime.timedelta(milliseconds=200)
+
+    return logs
+
+
+def sql_injection_attack(ip, current_time, count):
+
+    logs = []
+
+    for path in SQLI_PATTERNS:
+
+        time = current_time.strftime("%d/%b/%Y:%H:%M:%S")
+        # injection attempts often trigger 400/500 responses with moderate payloads
+        status = random.choice([400, 500])
+        bytes_sent = random.randint(500, 5000)
+
+        logs.append(
+            f'{ip} - - [{time}] "GET {path} HTTP/1.1" {status} {bytes_sent} "curl/7.68" sql_injection {count}'
+        )
+
+        current_time += datetime.timedelta(seconds=3)
+
+    return logs
+
+
+def exfiltration_attack(ip, current_time, count):
+
+    logs = []
+
+    for path in EXFIL_PATHS:
+
+        time = current_time.strftime("%d/%b/%Y:%H:%M:%S")
+        # exfil typically involves large responses
+        status = 200
+        bytes_sent = random.randint(50_000_000, 200_000_000)  # 50–200 MB
+
+        logs.append(
+            f'{ip} - - [{time}] "GET {path} HTTP/1.1" {status} {bytes_sent} "curl/7.68" data_exfiltration {count}'
+        )
+
+        current_time += datetime.timedelta(seconds=5)
 
     return logs
 
@@ -149,6 +210,8 @@ def generate_logs(size=2000):
     bf_count = 0
     scan_count = 0
     flood_count = 0
+    sqli_count = 0
+    exfil_count = 0
 
     start_time = datetime.datetime.now()
 
@@ -201,6 +264,32 @@ def generate_logs(size=2000):
 
                 for log in logs:
                     f.write(log + "\n")
+
+            elif attack_chance < 0.02:
+
+                # SQL injection attempts
+                logs = sql_injection_attack(
+                    random.choice(IPS_ATTACK),
+                    current_time,
+                    sqli_count
+                )
+                sqli_count += 1
+
+                for log in logs:
+                    f.write(log + "\n")
+
+            elif attack_chance < 0.025:
+
+                # data exfiltration attempts
+                logs = exfiltration_attack(
+                    random.choice(IPS_ATTACK),
+                    current_time,
+                    exfil_count,
+                )
+                exfil_count += 1
+
+                for log in logs:
+                    f.write(log + "\n")
             
             else:
 
@@ -215,7 +304,7 @@ def generate_logs(size=2000):
                 seconds=random.randint(1,5)
             )
 
-    return bf_count, scan_count, flood_count
+    return bf_count, scan_count, flood_count, sqli_count, exfil_count
 
 
 if __name__ == "__main__":

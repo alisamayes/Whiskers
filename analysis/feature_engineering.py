@@ -24,13 +24,35 @@ def basic_aggregate_features(df: pd.DataFrame) -> pd.DataFrame:
         df["timestamp"] = pd.to_datetime(df["timestamp"])
 
     grouped = df.groupby("ip")
-    features = pd.DataFrame(
-        {
-            "total_requests": grouped.size(),
-            "unique_paths": grouped["path"].nunique(),
-            "error_rate": grouped.apply(lambda g: (g["status"] >= 400).mean()),
-        }
-    )
+
+    # base frame indexed by IP
+    features = pd.DataFrame(index=grouped.size().index)
+    features["total_requests"] = grouped.size()
+    features["unique_paths"] = grouped["path"].nunique()
+
+    # compute status-based fractions without DataFrameGroupBy.apply
+    status = df["status"]
+    by_ip = df["ip"]
+
+    error_flag = (status >= 400)
+    features["error_rate"] = error_flag.groupby(by_ip).mean()
+
+    frac_2xx = status.between(200, 299)
+    frac_4xx = status.between(400, 499)
+    frac_5xx = status >= 500
+
+    features["fraction_2xx"] = frac_2xx.groupby(by_ip).mean()
+    features["fraction_4xx"] = frac_4xx.groupby(by_ip).mean()
+    features["fraction_5xx"] = frac_5xx.groupby(by_ip).mean()
+
+    # bytes_sent aggregates (if present)
+    if "bytes_sent" in df.columns:
+        features["total_bytes"] = grouped["bytes_sent"].sum()
+        features["avg_bytes"] = grouped["bytes_sent"].mean()
+
+    # user-agent diversity
+    if "agent" in df.columns:
+        features["unique_user_agents"] = grouped["agent"].nunique()
 
     # compute avg interval
     def avg_interval(series: pd.Series) -> float:

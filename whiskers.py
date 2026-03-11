@@ -1,7 +1,17 @@
 import sys
-from parser.log_parser import parse_logs
+from typing import List, Tuple
+
+import pandas as pd
+
+from parser.log_parser import parse_logs, parse_firewall_logs
 from analysis import feature_engineering
-from analysis.detectors import BruteForceDetector, ScanDetector, FloodDetector
+from analysis.detectors import (
+    BruteForceDetector,
+    ScanDetector,
+    FloodDetector,
+    SqlInjectionDetector,
+    ExfiltrationDetector,
+)
 from simulator.log_simulator import generate_logs
 
 class Whiskers:
@@ -10,12 +20,18 @@ class Whiskers:
         self.check = False
         self.gen_new = False
         self.size = 2000
+        # default access log sources
+        self.access_logs: List[Tuple[str, str]] = [("access", "data/access.log")]
+        # optional firewall log sources
+        self.firewall_logs: List[Tuple[str, str]] = []
         
         # Initialize detectors with configurable thresholds
         self.detectors = [
             BruteForceDetector(threshold=10),
             ScanDetector(threshold=4),
             FloodDetector(threshold=100),
+            SqlInjectionDetector(threshold=2),
+            ExfiltrationDetector(threshold=2_000_000),
         ]
 
         mouse_art = ['''
@@ -46,11 +62,14 @@ class Whiskers:
                 if arg in ("-h", "--help"):
                     print("Usage: python main.py [options]")
                     print("Options:")
-                    print("  -v, --verbose   Enable verbose output")
-                    print("  -h, --help      Show this help message")
-                    print("  -g, --generate  Generate new logs")
-                    print("  -c, --check     Check for accuracy of detection")
-                    print("  -s, --size [number]  Base number of log lines to generate (default 2000, attacks will generate more lines)")
+                    print("  -v, --verbose          Enable verbose output")
+                    print("  -h, --help             Show this help message")
+                    print("  -g, --generate         Generate new logs")
+                    print("  -c, --check            Check for accuracy of detection")
+                    print("  -s, --size [number]    Base number of log lines to generate (default 2000, attacks will generate more lines)")
+                    print("  -a, --access-log PATH  Use a specific access log file instead of data/access.log")
+                    print("      --extra-access-log PATH   Add an additional access log file")
+                    print("      --firewall-log PATH       Add a firewall log file")
                     sys.exit(0)
 
                 elif arg in ("-v", "--verbose"):
@@ -76,16 +95,69 @@ class Whiskers:
                     except (ValueError, IndexError):
                         print("Invalid size argument. Using default value of 2000.")
 
+                elif arg in ("-a", "--access-log"):
+                    try:
+                        path = args[args.index(arg) + 1]
+                        # replace default with single explicit access log
+                        self.access_logs = [("access", path)]
+                        args.pop(args.index(arg) + 1)
+                    except (ValueError, IndexError):
+                        print("Invalid or missing path for --access-log; keeping default data/access.log.")
+
+                elif arg == "--extra-access-log":
+                    try:
+                        path = args[args.index(arg) + 1]
+                        self.access_logs.append(("access", path))
+                        args.pop(args.index(arg) + 1)
+                    except (ValueError, IndexError):
+                        print("Invalid or missing path for --extra-access-log; ignoring.")
+
+                elif arg == "--firewall-log":
+                    try:
+                        path = args[args.index(arg) + 1]
+                        self.firewall_logs.append(("firewall", path))
+                        args.pop(args.index(arg) + 1)
+                    except (ValueError, IndexError):
+                        print("Invalid or missing path for --firewall-log; ignoring.")
+
                 else:
                     print("Unknown argument:", arg, " use -v or --verbose for verbose mode")
 
 
         if self.gen_new:
-            self.bfs, self.scs, self.fls = generate_logs(size=self.size)
-            print(f"Generated logs with {self.bfs} brute force attacks, {self.scs} directory scans, and {self.fls} request floods.")
+            (
+                self.bfs,
+                self.scs,
+                self.fls,
+                self.sqli,
+                self.exf,
+            ) = generate_logs(size=self.size)
+            print(
+                "Generated logs with "
+                f"{self.bfs} brute force attacks, "
+                f"{self.scs} directory scans, "
+                f"{self.fls} request floods, "
+                f"{self.sqli} SQL injection attacks, and "
+                f"{self.exf} data exfiltration attempts."
+            )
 
-        self.df = parse_logs("data/access.log")
-        print(f"Parsed {len(self.df)} log entries.")
+        # load and combine all configured logs
+        frames = []
+        for source_name, path in self.access_logs:
+            df_part = parse_logs(path, source=source_name)
+            frames.append(df_part)
+
+        for source_name, path in self.firewall_logs:
+            df_part = parse_firewall_logs(path, source=source_name)
+            frames.append(df_part)
+
+        if frames:
+            self.df = pd.concat(frames, ignore_index=True).sort_values("timestamp")
+        else:
+            self.df = pd.DataFrame()
+
+        total_files = len(self.access_logs) + len(self.firewall_logs)
+        print(f"Parsed {len(self.df)} log entries from {total_files} log file(s).")
 
         # create a simple feature matrix that future machine learning models
         # can consume.  we keep it around on the instance for later use.

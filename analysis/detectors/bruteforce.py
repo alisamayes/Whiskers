@@ -47,8 +47,12 @@ class BruteForceDetector(BaseDetector):
 
         failed = failed.set_index("timestamp")
 
-        # Group by IP and resample by time window, count attempts
-        attempts = failed.groupby("ip").resample(self.time_window).size()
+        # Group by IP and time window using Grouper, count attempts
+        attempts = (
+            failed
+            .groupby(["ip", pd.Grouper(freq=self.time_window)])["path"]
+            .size()
+        )
 
         # Alert on IPs exceeding threshold
         suspicious = attempts[attempts > self.threshold]
