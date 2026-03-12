@@ -60,16 +60,7 @@ class Whiskers:
         if len(args) > 0:
             for arg in args:
                 if arg in ("-h", "--help"):
-                    print("Usage: python main.py [options]")
-                    print("Options:")
-                    print("  -v, --verbose          Enable verbose output")
-                    print("  -h, --help             Show this help message")
-                    print("  -g, --generate         Generate new logs")
-                    print("  -c, --check            Check for accuracy of detection")
-                    print("  -s, --size [number]    Base number of log lines to generate (default 2000, attacks will generate more lines)")
-                    print("  -a, --access-log PATH  Use a specific access log file instead of data/access.log")
-                    print("      --extra-access-log PATH   Add an additional access log file")
-                    print("      --firewall-log PATH       Add a firewall log file")
+                    self.show_help()
                     sys.exit(0)
 
                 elif arg in ("-v", "--verbose"):
@@ -194,3 +185,40 @@ class Whiskers:
                 by_kind[alert.kind] = by_kind.get(alert.kind, 0) + 1
             for kind, count in by_kind.items():
                 print(f"{kind.replace('_', ' ').title()} attempts detected: {count}")
+
+
+    def show_help(self):
+        startup_help_text = """
+            Startup Usage: python main.py [options]
+            Options:
+            -v, --verbose   Enable verbose output
+            -h, --help      Show this help message
+            -g, --generate  Generate new logs
+            -c, --check     Check for accuracy of detection
+            -s, --size [number]  Base number of log lines to generate (default 2000, attacks will generate more lines)
+            -a, --access-log PATH  Use a specific access log file instead of data/access.log
+            --extra-access-log PATH   Add an additional access log file
+            --firewall-log PATH       Add a firewall log file
+                    
+        """
+
+        running_help_text = """            
+            Running Usage: 
+            'exit'  Stop the agent and exit the program.
+            'help'  Show this help message.
+            '-g or --generate'  Generate new logs (will overwrite existing logs and reset detections).
+            '-d or --detect'  Rerun detection algorithms on the current logs (useful after generating new logs).
+
+        """
+
+        print(startup_help_text)
+        print(running_help_text)
+
+
+    
+    def await_input(self):
+        while True:
+            user_input = input("Awaiting task for Whiskers").lower()
+            if user_input == "exit":
+                print("Exiting Whiskers Agent. Stay safe out there!")
+                sys.exit(0)
