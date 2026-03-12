@@ -1,33 +1,8 @@
 import random
 import datetime
 
-IPS_NORMAL = [
-    "192.168.1.10",
-    "192.168.1.20",
-    "10.0.0.5",
-    "172.16.0.4",
-    "192.168.1.15",
-    "10.0.0.10",
-    "172.16.0.8",
-    "203.0.113.5",
-    "192.168.0.100",
-    "10.10.10.1"
-]
+from simulator.user import User
 
-IPS_ATTACK = [
-    "185.23.54.2",
-    "45.33.22.11",
-    "91.200.12.55",
-    "103.44.12.9",
-    "185.220.101.1",
-    "45.67.89.12",
-    "91.134.56.78",
-    "103.78.90.123",
-    "198.51.100.1",
-    "203.0.113.10",
-    "104.244.42.65",
-    "185.199.108.133"
-]
 
 PATHS_NORMAL = [
     "/",
@@ -94,6 +69,8 @@ USER_AGENTS = [
     "Wget/1.21.3",
     "Java/11.0.18"
 ]
+
+
 
 
 def generate_normal_request(time):
@@ -205,13 +182,15 @@ def exfiltration_attack(ip, current_time, count):
     return logs
 
 
-def generate_logs(size=2000):
+def generate_logs(size=2000, users = 100):
 
     bf_count = 0
     scan_count = 0
     flood_count = 0
     sqli_count = 0
     exfil_count = 0
+
+    users = [User() for _ in range(users)]
 
     start_time = datetime.datetime.now()
 
@@ -221,91 +200,52 @@ def generate_logs(size=2000):
 
         for i in range(size):
 
-            # occasional attack events
+            # Pick a random user and determine their behavior based on their profile
+            user = random.choice(users)
+            profile = user.profile
+            attack_risk = user.PROFILES[profile]["attack"]
             attack_chance = random.random()
+            if attack_chance < attack_risk:
+                if profile == "scanner":
+                    logs = user.perform_attack("directory_scan", current_time, {"directory_scan": scan_count})
+                    scan_count += 1
 
-            if attack_chance < 0.005:
+                else:
+                    attack_type = user.choose_attack_type()
+                    logs = user.perform_attack(
+                        attack_type,
+                        current_time,
+                        {
+                            "brute_force": bf_count,
+                            "directory_scan": scan_count,
+                            "request_flood": flood_count,
+                            "sql_injection": sqli_count,
+                            "data_exfiltration": exfil_count
+                        }
+                    )
+                    if attack_type == "brute_force":
+                        bf_count += 1
+                    elif attack_type == "request_flood":
+                        flood_count += 1
+                    elif attack_type == "sql_injection":
+                        sqli_count += 1
+                    elif attack_type == "data_exfiltration":
+                        exfil_count += 1
 
-                #print("Generating brute force attack logs...    ")
-                logs = brute_force_attack(
-                    random.choice(IPS_ATTACK),
-                    current_time,
-                    bf_count
-                )
-                bf_count += 1
+            f.writelines(logs)
+        
 
-                for log in logs:
-                    f.write(log + "\n")
-
-            elif attack_chance < 0.01:
-
-                #print("Generating directory scan logs...    ")
-                logs = directory_scan(
-                    random.choice(IPS_ATTACK),
-                    current_time,
-                    scan_count
-                )
-                scan_count += 1
-
-                for log in logs:
-                    f.write(log + "\n")
-
-
-            elif attack_chance < 0.015:
-                
-                #print("Generating request flood logs...")
-                flood_ip = random.choice(IPS_ATTACK)
-                logs = request_flood(
-                    flood_ip,
-                    current_time,
-                    flood_count
-                )
-                flood_count += 1
-
-                for log in logs:
-                    f.write(log + "\n")
-
-            elif attack_chance < 0.02:
-
-                # SQL injection attempts
-                logs = sql_injection_attack(
-                    random.choice(IPS_ATTACK),
-                    current_time,
-                    sqli_count
-                )
-                sqli_count += 1
-
-                for log in logs:
-                    f.write(log + "\n")
-
-            elif attack_chance < 0.025:
-
-                # data exfiltration attempts
-                logs = exfiltration_attack(
-                    random.choice(IPS_ATTACK),
-                    current_time,
-                    exfil_count,
-                )
-                exfil_count += 1
-
-                for log in logs:
-                    f.write(log + "\n")
             
-            else:
 
-                # print("Generating normal logs...    ")
-                time_str = current_time.strftime("%d/%b/%Y:%H:%M:%S")
-
-                log = generate_normal_request(time_str)
-
-                f.write(log + "\n")
-
-            current_time += datetime.timedelta(
-                seconds=random.randint(1,5)
-            )
-
+    report_generation_stats(bf_count, scan_count, flood_count, sqli_count, exfil_count)
     return bf_count, scan_count, flood_count, sqli_count, exfil_count
 
-
-if __name__ == "__main__":
-    generate_logs()
+def report_generation_stats(bf, sc, fl, sqli, exfil):
+    print(
+        "Generated logs with "
+        f"{bf} brute force attacks, "
+        f"{sc} directory scans, "
+        f"{fl} request floods, "
+        f"{sqli} SQL injection attacks, and "
+        f"{exfil} data exfiltration attempts."
+    )

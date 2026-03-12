@@ -34,7 +34,7 @@ class SqlInjectionDetector(BaseDetector):
         super().__init__(threshold)
         self.time_window = time_window
 
-    def _is_suspicious(self, path: str) -> bool:
+    def is_suspicious(self, path: str) -> bool:
         lower = path.lower()
         return any(token in lower for token in SUSPECT_SUBSTRINGS)
 
@@ -44,7 +44,7 @@ class SqlInjectionDetector(BaseDetector):
         if df.empty or "path" not in df.columns:
             return alerts
 
-        suspicious = df[df["path"].apply(self._is_suspicious)].copy()
+        suspicious = df[df["path"].apply(self.is_suspicious)].copy()
         if suspicious.empty:
             return alerts
 
