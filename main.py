@@ -11,3 +11,4 @@ from whiskers import Whiskers
 
 
 whiskers = Whiskers(sys.argv[1:])
+whiskers.await_input()
