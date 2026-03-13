@@ -7,7 +7,7 @@ class User:
     def __init__(self):
         # Assign profile based on realistic distribution
         alignment = random.random()
-        if alignment < 0.7:
+        if alignment < 0.8:
             self.profile = "normal"
             self.ip = random.choice(IPS_NORMAL)
         elif alignment < 0.9:
@@ -59,7 +59,7 @@ class User:
 
     def perform_attack(self, attack_type, current_time, global_counters):
         """Perform an attack and update counters."""
-        from log_simulator import (
+        from simulator.log_simulator import (
             brute_force_attack, directory_scan, request_flood,
             sql_injection_attack, exfiltration_attack
         )
@@ -85,7 +85,7 @@ class User:
 
     def perform_normal_traffic(self, current_time):
         """Generate normal traffic for this user."""
-        from log_simulator import generate_normal_request
+        from simulator.log_simulator import generate_normal_request
         time_str = current_time.strftime("%d/%b/%Y:%H:%M:%S")
         return [generate_normal_request(time_str)]
 

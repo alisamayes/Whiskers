@@ -1,7 +1,7 @@
 import random
 import datetime
 
-from simulator.user import User
+from simulator.user import User, PROFILES, IPS_NORMAL
 
 
 PATHS_NORMAL = [
@@ -193,23 +193,28 @@ def generate_logs(size=2000, users = 100):
     users = [User() for _ in range(users)]
 
     start_time = datetime.datetime.now()
-
     current_time = start_time
 
     with open("data/access.log", "w") as f:
 
         for i in range(size):
-
-            # Pick a random user and determine their behavior based on their profile
+            # Pick a random user and use their profile probabilities
             user = random.choice(users)
             profile = user.profile
-            attack_risk = user.PROFILES[profile]["attack"]
-            attack_chance = random.random()
-            if attack_chance < attack_risk:
-                if profile == "scanner":
-                    logs = user.perform_attack("directory_scan", current_time, {"directory_scan": scan_count})
-                    scan_count += 1
+            attack_risk = PROFILES[profile]["attack"]
 
+            # Decide whether this log line is an attack or normal traffic
+            attack_chance = random.random()
+
+            if attack_chance < attack_risk:
+                # User performs an attack
+                if profile == "scanner":
+                    logs = user.perform_attack(
+                        "directory_scan",
+                        current_time,
+                        {"directory_scan": scan_count},
+                    )
+                    scan_count += 1
                 else:
                     attack_type = user.choose_attack_type()
                     logs = user.perform_attack(
@@ -220,9 +225,10 @@ def generate_logs(size=2000, users = 100):
                             "directory_scan": scan_count,
                             "request_flood": flood_count,
                             "sql_injection": sqli_count,
-                            "data_exfiltration": exfil_count
-                        }
+                            "data_exfiltration": exfil_count,
+                        },
                     )
+
                     if attack_type == "brute_force":
                         bf_count += 1
                     elif attack_type == "request_flood":
@@ -231,8 +237,13 @@ def generate_logs(size=2000, users = 100):
                         sqli_count += 1
                     elif attack_type == "data_exfiltration":
                         exfil_count += 1
+            else:
+                # Normal traffic for this user
+                logs = user.perform_normal_traffic(current_time)
 
-            f.writelines(logs)
+            # Ensure each log entry is written on its own line
+            for line in logs:
+                f.write(line + "\n")
         
 
             
