@@ -12,6 +12,8 @@ from analysis.detectors import (
     FloodDetector,
     SqlInjectionDetector,
     ExfiltrationDetector,
+    IsolationForestDetector,
+    SupervisedIPClassifierDetector,
 )
 from simulator.log_simulator import generate_logs
 
@@ -34,6 +36,8 @@ class Whiskers:
             FloodDetector(threshold=100),
             SqlInjectionDetector(threshold=2),
             ExfiltrationDetector(threshold=2_000_000),
+            IsolationForestDetector(contamination=0.1),
+            SupervisedIPClassifierDetector(),
         ]
 
         # Initialize list for true number of attack types. Will be filled when generating logs
@@ -144,7 +148,7 @@ class Whiskers:
             self.df = pd.DataFrame()
 
         total_files = len(self.access_logs) + len(self.firewall_logs)
-        print(f"Parsed {len(self.df)} log entries from {total_files} log file(s).")
+        print(f"Parsed {self.df.shape[0]} lines from {total_files} log file(s).")
 
         # create features for later use
         self.features = feature_engineering.basic_aggregate_features(self.df)

@@ -6,6 +6,8 @@ from .scan import ScanDetector
 from .flood import FloodDetector
 from .sql_injection import SqlInjectionDetector
 from .exfiltration import ExfiltrationDetector
+from .ml_isolation import IsolationForestDetector
+from .ml_supervised import SupervisedIPClassifierDetector
 
 __all__ = [
     "BaseDetector",
@@ -15,4 +17,6 @@ __all__ = [
     "FloodDetector",
     "SqlInjectionDetector",
     "ExfiltrationDetector",
+    "IsolationForestDetector",
+    "SupervisedIPClassifierDetector",
 ]
