@@ -16,6 +16,7 @@ from analysis.detectors import (
     SupervisedIPClassifierDetector,
 )
 from simulator.log_simulator import generate_logs
+from simulator.log_saver import save_logs, log_shredder
 
 class Whiskers:
     def __init__(self, args):
@@ -122,7 +123,7 @@ class Whiskers:
             -d, --detect                    Rerun detection algorithms on current logs
             -s, --show                      Show current feature matrix and detections
             -c, --check                     Check for accuracy of detection
-            -s, --size [number]             Base number of log lines to generate (default 2000, attacks will generate more lines)
+            -s, --size [number]             Base number of actions to generate (default 2000, attacks will generate more log lines)
             -a, --access-log PATH           Use a specific access log file instead of data/access.log
             -ea, --extra-access-log PATH    Add an additional access log file
             -fw, --firewall-log PATH        Add a firewall log file
@@ -192,13 +193,56 @@ class Whiskers:
         # First pass: parse all arguments
         i = 0
         while i < len(command):
-            arg = command[i]
-            
-            if arg in ("exit", "quit", "q"):
+            arg = command[i].lower()
+
+            if arg in ("quit", "exit", "q", "-q", "--quit", "--exit"):
                 print("Exiting Whiskers. Stay safe out there!")
                 sys.exit(0)
 
-            if arg in ("-h", "--help", "help"):
+            elif arg == "save":
+                # This should only be run as a solo command (with args). Cancel if there are other args to avoid confusion.
+                # Expected usage: "save" or "save data/etra_run.log" 
+                if len(command)> 3:
+                    print("The 'save' command should be used alone with a filename and optional directory, e.g. 'save test.log' or 'save test.log ./alt_drectory test.log'")
+                    sys.exit(1)
+                if len(command) == 3:
+                    filename = command[1]
+                    directory = command[2]
+                    save_logs(filename, directory)
+                    command.pop(1)
+                    command.pop(1)
+                elif len(command) == 2:                    
+                    filename = command[1]
+                    directory = None
+                    command.pop(1)
+                if len(command) == 1:
+                    filename = f"data/whiskers_log_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.log"
+                    directory = None
+                else:
+                    print("Something went wrong. Please check your command and try again.")
+                    break
+                save_logs(filename, directory)
+
+            elif arg == "shred":
+                # This should only be run as a solo command (with args). Cancel if there are other args to avoid confusion.
+                if len(command) > 3:
+                    print("The 'shred' command should be used alone with a filename and optional directory, e.g. 'shred test.log' or 'shred test.log ./alt_directory'")
+                    sys.exit(1)
+                if len(command) == 3:
+                    filename = command[1]
+                    directory = command[2]
+                    log_shredder(filename, directory)
+                    command.pop(1)
+                    command.pop(1)
+                elif len(command) == 2:                    
+                    filename = command[1]
+                    directory = None
+                    command.pop(1)
+                if len(command) == 1:
+                    print("Please provide the name of the log file to shred, e.g. 'shred test.log' or 'shred test.log ./alt_directory'")
+                    sys.exit(1)
+
+            elif arg in ("-h", "--help", "help"):
                 self.show_help()
 
             elif arg in ("-v", "--verbose", "verbose"):
@@ -244,7 +288,7 @@ class Whiskers:
                     i += 1
                 except IndexError:
                     print("Invalid or missing path for --firewall-log; ignoring.")
-
+            
             elif arg == "mouse":
                 print(self.mouse_art_2[0])
 

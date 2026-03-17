@@ -18,6 +18,14 @@ SUSPECT_SUBSTRINGS = [
     ";--",
 ]
 
+SQLI_PATTERNS = [
+    "/search?q=' OR 1=1 --",
+    "/search?q=\" OR \"1\"=\"1",
+    "/login?user=admin'--",
+    "/products?id=1 UNION SELECT username, password FROM users",
+    "/items?id=1; DROP TABLE users",
+]
+
 
 class SqlInjectionDetector(BaseDetector):
     """Detects likely SQL injection attempts based on request paths/query strings."""
