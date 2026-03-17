@@ -53,6 +53,8 @@ def parse_logs(file, source: str = "access"):
     return df
 
 
+
+
 def parse_firewall_logs(file, source: str = "firewall"):
     """Parse simple firewall logs into the common schema.
 
@@ -94,5 +96,6 @@ def parse_firewall_logs(file, source: str = "firewall"):
     if not df.empty:
         df["timestamp"] = pd.to_datetime(df["timestamp"])
         df = df.sort_values("timestamp")
+
 
     return df

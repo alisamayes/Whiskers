@@ -255,9 +255,14 @@ class Whiskers:
 
         # Second pass: execute actions after all arguments are parsed
         if self.gen_new:
+            #print("DEBUG: ", self.true_attack_counts)
             true_counts = generate_logs(size=self.size)
             for attack in self.true_attack_counts:
+                #print("Now about to process attack type:", attack)
+                #list all attacks of current type                    
+                #print(f"DEBUG: True count for {attack}: {temp}")
                 self.true_attack_counts[attack] = true_counts[list(self.true_attack_counts.keys()).index(attack)]
+            #print(f"DEBUG: ",self.true_attack_counts)
             self.gen_new = False
             self.mode = "normal"
         
@@ -267,7 +272,7 @@ class Whiskers:
             self.run_detection = False
 
         if self.check:
-            check_detection(self.true_attack_counts, self.detected_attack_counts)
+            check_detection(self.true_attack_counts, self.detected_attack_counts, self.df)
             self.check = False
 
     def await_input(self):

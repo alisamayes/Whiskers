@@ -90,8 +90,9 @@ def generate_normal_request(time):
 def brute_force_attack(ip, current_time, count):
 
     logs = []
+    attempts = random.randint(20, 40)  # Simulate 20-40 attempts to ensure we have at least one valid sequence
 
-    for i in range(5,40):
+    for i in range(attempts):
 
         time = current_time.strftime("%d/%b/%Y:%H:%M:%S")
 
@@ -119,7 +120,7 @@ def directory_scan(ip, current_time, count):
             f'{ip} - - [{time}] "GET {path} HTTP/1.1" 404 {bytes_sent} "curl/7.68" directory_scan {count}'
         )
         
-        current_time += datetime.timedelta(seconds=2)
+        current_time += datetime.timedelta(seconds=1)
     
     return logs
 
@@ -127,7 +128,7 @@ def request_flood(ip, current_time, count):
 
     logs = []
 
-    for i in range(150):
+    for i in range(100):
 
         path = random.choice(PATHS_NORMAL)
         time = current_time.strftime("%d/%b/%Y:%H:%M:%S")
@@ -207,6 +208,8 @@ def generate_logs(size=2000, users = 100):
             attack_chance = random.random()
 
             if attack_chance < attack_risk:
+                #print(f"DEBUG: User {user.ip} with profile (profile: {profile}) will perform an attack")
+
                 # User performs an attack
                 if profile == "scanner":
                     logs = user.perform_attack(
@@ -230,6 +233,7 @@ def generate_logs(size=2000, users = 100):
                     )
 
                     if attack_type == "brute_force":
+                        #print(f"DEBUG: User {user.ip} performed a brute force attack. Current count: {bf_count}")
                         bf_count += 1
                     elif attack_type == "request_flood":
                         flood_count += 1

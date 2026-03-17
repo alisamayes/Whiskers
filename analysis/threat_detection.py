@@ -49,7 +49,7 @@ class Mäuschen_Detective_Tools:
 
             rolling_counts = group["path"].rolling("60s").count()
 
-            flood_points = rolling_counts[rolling_counts > 100]
+            flood_points = rolling_counts[rolling_counts > 80]
 
             last_alert_time = None
 
