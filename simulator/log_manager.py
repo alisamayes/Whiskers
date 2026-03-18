@@ -1,7 +1,8 @@
 # Allows Whiskers agent to save generated logs to a file for later parsing and analysis.
 import os
+from turtle import pd
 
-def save_logs(filename, directory=None):
+def save_logs(args):
     """ Allows Whiskers agent to save the current generated log under a differnt file name so it isnt overwritten in the next run.
           
     Args:
@@ -9,8 +10,22 @@ def save_logs(filename, directory=None):
         directory (str): optional - The directory where logs should be saved. Default is ./data if not provided.
     """
 
-    if directory is None:
-        directory = "data"
+    if len(args)> 2:
+        print("The 'save' command should be used alone with a filename and an optional alternative directory, e.g. 'save test.log' or 'save test.log ./alt_drectory test.log'")
+        return
+    
+    if len(args) == 2:
+        filename = args[0]
+        directory = args[1]
+        
+    if len(args) == 1:
+        filename = args[0]
+        directory = "data/"
+    
+    else:
+        print("Something went wrong. Please check your command and try again.")
+        return
+
 
     if not os.path.exists(directory):
         os.makedirs(directory)
@@ -24,7 +39,7 @@ def save_logs(filename, directory=None):
     print(f"Logs saved to {destination}")
 
 
-def log_shredder(filename, directory=None):
+def log_shredder(args):
     """Allows Whiskers agent to delete a log file that is no longer needed.
     
     Args:
@@ -32,12 +47,26 @@ def log_shredder(filename, directory=None):
         directory (str): The directory where logs are saved. Default is ./data if not provided.
     """
 
-    if directory is None:
-        directory = "data"
+    if len(args)> 2:
+        print("The 'save' command should be used alone with a filename and an optional alternative directory, e.g. 'save test.log' or 'save test.log ./alt_drectory test.log'")
+        return
+    
+    if len(args) == 2:
+        filename = args[0]
+        directory = args[1]
+        
+    if len(args) == 1:
+        filename = args[0]
+        directory = "data/"
+    
+    else:
+        print("Something went wrong. Please check your command and try again.")
+        return
 
     file_path = os.path.join(directory, filename)
 
-    if os.path.exists(file_path):
+    
+    if os.path.exists(file_path):        
         os.remove(file_path)
         print(f"Log file {file_path} has been deleted.")
     else:

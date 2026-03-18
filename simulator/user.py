@@ -32,6 +32,8 @@ class User:
             "data_exfiltration": 0
         }
 
+
+
     def decide_action(self):
         """Decide whether to perform normal traffic or an attack. Previous method of attackers always attacking was unrealistic."""
         return "attack" if random.random() < self.behavior_probs["attack"] else "normal"
@@ -73,8 +75,7 @@ class User:
         }
 
         if attack_type in attack_functions:
-            #print(f"DEBUG: User {self.ip} is performing {attack_type} attack. Current count for this attack type is: {global_counters[attack_type]}")
-            # Get the attack logs
+             # Get the attack logs
             logs = attack_functions[attack_type](self.ip, current_time, global_counters[attack_type])
 
             # Update counters

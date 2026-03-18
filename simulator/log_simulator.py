@@ -2,6 +2,7 @@ import random
 import datetime
 
 from simulator.user import User, PROFILES, IPS_NORMAL
+from analysis.stats import report_generation_stats
 
 
 PATHS_NORMAL = [
@@ -191,7 +192,24 @@ def generate_logs(size=2000, users = 100):
     sqli_count = 0
     exfil_count = 0
 
+    profile_counts = {
+        "normal": 0,
+        "scanner": 0,
+        "attacker": 0,
+        "compromised": 0
+    }
+
+    log_source_counts = {
+        "normal": 0,
+        "scanner": 0,
+        "attacker": 0,
+        "compromised": 0
+    }
+
     users = [User() for _ in range(users)]
+
+    for user in users:
+        profile_counts[user.profile] += 1
 
     start_time = datetime.datetime.now()
     current_time = start_time
@@ -208,7 +226,6 @@ def generate_logs(size=2000, users = 100):
             attack_chance = random.random()
 
             if attack_chance < attack_risk:
-                #print(f"DEBUG: User {user.ip} with profile (profile: {profile}) will perform an attack")
 
                 # User performs an attack
                 if profile == "scanner":
@@ -233,7 +250,6 @@ def generate_logs(size=2000, users = 100):
                     )
 
                     if attack_type == "brute_force":
-                        #print(f"DEBUG: User {user.ip} performed a brute force attack. Current count: {bf_count}")
                         bf_count += 1
                     elif attack_type == "request_flood":
                         flood_count += 1
@@ -245,22 +261,14 @@ def generate_logs(size=2000, users = 100):
                 # Normal traffic for this user
                 logs = user.perform_normal_traffic(current_time)
 
+            log_source_counts[user.profile] += 1
+
             # Ensure each log entry is written on its own line
             for line in logs:
                 f.write(line + "\n")
-        
-
-            
+              
 
     report_generation_stats(bf_count, scan_count, flood_count, sqli_count, exfil_count)
-    return bf_count, scan_count, flood_count, sqli_count, exfil_count
+    return bf_count, scan_count, flood_count, sqli_count, exfil_count, profile_counts, log_source_counts
 
-def report_generation_stats(bf, sc, fl, sqli, exfil):
-    print(
-        "Generated logs with "
-        f"{bf} brute force attacks, "
-        f"{sc} directory scans, "
-        f"{fl} request floods, "
-        f"{sqli} SQL injection attacks, and "
-        f"{exfil} data exfiltration attempts."
-    )
+

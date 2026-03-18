@@ -3,9 +3,11 @@ from typing import List, Tuple
 
 import pandas as pd
 
+from analysis.stats import report_detection_stats, show_actor_distribution
+from analysis.stats import show_actor_distribution
 from parser.log_parser import parse_logs, parse_firewall_logs
 from analysis import feature_engineering
-from analysis.check_detection import check_detection
+from analysis.stats import check_detection_stats
 from analysis.detectors import (
     BruteForceDetector,
     ScanDetector,
@@ -16,7 +18,7 @@ from analysis.detectors import (
     SupervisedIPClassifierDetector,
 )
 from simulator.log_simulator import generate_logs
-from simulator.log_saver import save_logs, log_shredder
+from simulator.log_manager import save_logs, log_shredder
 
 class Whiskers:
     def __init__(self, args):
@@ -58,24 +60,39 @@ class Whiskers:
             "data_exfiltration": 0
         }
 
+        # Stats from log generation
+        self.profile_counts = {
+            "normal": 0,
+            "scanner": 0,
+            "attacker": 0,
+            "compromised": 0
+        }
+
+        self.log_source_counts = {
+            "normal": 0,
+            "scanner": 0,
+            "attacker": 0,
+            "compromised": 0
+        }
+
         mouse_art_1 = ['''
-    ⠀⠀⠀⡎⠑⡄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⢸⠀⠀⠸⡀⠀⠀⠀⣠⠴⡲⠛⠉⠉⠓⠲⣄⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⢸⠀⠀⠀⣇⡴⢠⠞⢁⠞⠒⠒⠤⠀⠀⠀⠈⢳⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠈⡆⠰⣄⣹⢠⠃⠀⠸⡄⠀⠀⠀⠱⠀⠀⠀⠈⡇⠀⠀⢀⣠⠄
-⠀⠀⠀⣀⡴⠚⠉⠉⠉⠓⠙⠊⠂⠀⠀⡃⠀⠀⠀⠀⠀⠀⠀⢠⠇⣠⢶⠟⠁⠀
-⣠⠶⡚⠉⠀⠀⠀⠀⣀⡀⠀⠀⠀⠀⡚⠁⠀⠀⡄⠀⠀⠀⢠⠞⡰⢡⠏⠀⠀⠀
-⢷⠔⠁⠀⠀⠀⠀⡎⠁⣹⡆⠀⠀⠀⠘⡖⠤⢤⡿⣄⠤⠞⠁⢰⠃⡟⠀⠀⠀⠀
-⠘⣦⠀⢠⠠⡀⠀⠙⠿⠔⠁⠀⠀⠀⠀⢸⠀⠀⠀⠀⠀⠀⠀⣼⠀⡇⠀⠀⠀⠀
-⠀⠈⠳⣄⣧⠙⢆⠀⠀⠀⠀⠀⠀⠀⣠⠞⠀⠀⠀⠀⠀⠀⠀⡿⠀⣇⠀⠀⠀⠀
-⠀⠀⠀⠈⣻⢦⢈⢧⠀⠀⠀⠀⠐⠉⢡⠀⠀⠀⠀⠀⠀⠀⠀⡇⠀⣿⠀⠀⠀⠀
-⠀⠀⠀⢀⠏⣸⠀⠈⠆⡀⠀⠀⠀⠀⠈⠳⣄⠀⠀⠀⠀⠀⣸⠁⠀⣿⠀⠀⠀⠀
-⠀⠀⠀⠀⢰⠃⢠⠀⡴⠁⠀⠀⡆⠀⠀⠀⠈⠳⣄⣀⣠⠞⠁⠀⣰⠃⠀⠀⠀⠀
-⠀⠀⠀⠀⠘⢶⣹⢠⡧⡀⢀⡼⠁⠀⠀⠀⠀⠀⠈⠻⡀⠀⢀⡴⠃⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⢀⡏⠀⠈⠷⠗⡟⠀⠀⠀⠀⠀⠀⠀⠀⠀⢳⠴⠋⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠸⣆⠀⢄⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⠀⢀⡞⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⢀⣴⠋⡛⠲⢵⣦⣽⣦⣀⣀⠀⢀⣀⣠⠴⠋⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠈⠙⠒⠓⠒⠉⢸⣕⣠⣈⡭⠝⠋⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+            ⠀⠀⠀⡎⠑⡄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+        ⠀⠀⠀⠀⠀⠀⢸⠀⠀⠸⡀⠀⠀⠀⣠⠴⡲⠛⠉⠉⠓⠲⣄⠀⠀⠀⠀⠀⠀⠀
+        ⠀⠀⠀⠀⠀⠀⢸⠀⠀⠀⣇⡴⢠⠞⢁⠞⠒⠒⠤⠀⠀⠀⠈⢳⠀⠀⠀⠀⠀⠀
+        ⠀⠀⠀⠀⠀⠀⠈⡆⠰⣄⣹⢠⠃⠀⠸⡄⠀⠀⠀⠱⠀⠀⠀⠈⡇⠀⠀⢀⣠⠄
+        ⠀⠀⠀⣀⡴⠚⠉⠉⠉⠓⠙⠊⠂⠀⠀⡃⠀⠀⠀⠀⠀⠀⠀⢠⠇⣠⢶⠟⠁⠀
+        ⣠⠶⡚⠉⠀⠀⠀⠀⣀⡀⠀⠀⠀⠀⡚⠁⠀⠀⡄⠀⠀⠀⢠⠞⡰⢡⠏⠀⠀⠀
+        ⢷⠔⠁⠀⠀⠀⠀⡎⠁⣹⡆⠀⠀⠀⠘⡖⠤⢤⡿⣄⠤⠞⠁⠃⡟⠀⠀⠀⠀
+        ⠘⣦⠀⢠⠠⡀⠀⠙⠿⠔⠁⠀⠀⠀⠀⢸⠀⠀⠀⠀⠀⠀⠀⣼⠀⡇⠀⠀⠀⠀
+        ⠀⠈⠳⣄⣧⠙⢆⠀⠀⠀⠀⠀⠀⠀⣠⠞⠀⠀⠀⠀⠀⠀⠀⡿⠀⣇⠀⠀⠀⠀
+        ⠀⠀⠀⠈⣻⢦⢈⢧⠀⠀⠀⠀⠐⠉⢡⠀⠀⠀⠀⠀⠀⠀⠀⡇⠀⣿⠀⠀⠀⠀
+        ⠀⠀⠀⢀⠏⣸⠀⠈⠆⡀⠀⠀⠀⠀⠈⠳⣄⠀⠀⠀⠀⠀⣸⠁⠀⣿⠀⠀⠀⠀
+        ⠀⠀⠀⠀⢰⠃⢠⠀⡴⠁⠀⠀⡆⠀⠀⠀⠈⠳⣄⣀⣠⠞⠁⠀⣰⠃⠀⠀⠀⠀
+        ⠀⠀⠀⠀⠘⢶⣹⢠⡧⡀⢀⡼⠁⠀⠀⠀⠀⠀⠈⠻⡀⠀⢀⡴⠃⠀⠀⠀⠀⠀
+        ⠀⠀⠀⠀⢀⡏⠀⠈⠷⠗⡟⠀⠀⠀⠀⠀⠀⠀⠀⠀⢳⠴⠋⠀⠀⠀⠀⠀⠀⠀
+        ⠀⠀⠀⠀⠸⣆⠀⢄⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⠀⢀⡞⠀⠀⠀⠀⠀⠀⠀⠀⠀
+        ⠀⠀⠀⢀⣴⠋⡛⠲⢵⣦⣽⣦⣀⣀⠀⢀⣀⣠⠴⠋⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+        ⠀⠀⠀⠈⠙⠒⠓⠒⠉⢸⣕⣠⣈⡭⠝⠋⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
         ''']
         self.mouse_art_2 = ['''
         ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
@@ -106,27 +123,25 @@ class Whiskers:
         # Sort out any additional arguments
         self.process_commands(args)
 
-        # load and combine all configured logs and prepare features
-        #self.prepare_dataframe()
-
-        # run the configured detectors and display results
-        #self.run_detection_models()
-
 
 
     def show_help(self):
         help_text = """         Startup Usage: python main.py [options]
             Options:
-            -v, --verbose                   Enable verbose output
             -h, --help                      Show this help message
             -g, --generate                  Generate new logs
-            -d, --detect                    Rerun detection algorithms on current logs
-            -s, --show                      Show current feature matrix and detections
-            -c, --check                     Check for accuracy of detection
             -s, --size [number]             Base number of actions to generate (default 2000, attacks will generate more log lines)
+            -d, --detect                    Rerun detection algorithms on current logs
+            -v, --verbose                   Enable verbose output for detect. Shows all detected alerts with details instead of just summary counts.
+            -c, --check                     Check for accuracy of detection
+            -as, --actor-stats              Show distribution of actor profiles in the generated logs
             -a, --access-log PATH           Use a specific access log file instead of data/access.log
             -ea, --extra-access-log PATH    Add an additional access log file
-            -fw, --firewall-log PATH        Add a firewall log file
+            -fw, --firewall-log PATH        Add a firewall log file (WIP)
+
+            Additional commands (not used with flags):
+            save [filename] [directory]     Save the current access log to a new file with optional directory (default directory is ./data/)
+            shred [filename] [directory]    Delete a log file that is no longer needed (default directory is ./data/)
                     
         """
 
@@ -160,33 +175,36 @@ class Whiskers:
 
     def run_detection_models(self):
         """Execute all detectors against the current dataframe and print results."""
+        # Reset detected counts so a new run doesn't carry over prior results
+        for kind in self.detected_attack_counts:
+            self.detected_attack_counts[kind] = 0
+
         self.all_alerts = []
         for detector in self.detectors:
             alerts = detector.detect(self.df)
             self.all_alerts.extend(alerts)
 
-        if self.mode == "verbose":
-            print("\n--- threat detections ---")
-            by_kind = {}
-            for alert in self.all_alerts:
-                by_kind.setdefault(alert.kind, []).append(alert)
+        report_detection_stats(self.all_alerts, self.detected_attack_counts, self.mode)
 
-            for kind, alerts_of_kind in by_kind.items():
-                print(f"\n{kind.upper()} ({len(alerts_of_kind)} total):")
-                self.detected_attack_counts[kind] = len(alerts_of_kind)
-                for alert in alerts_of_kind:
-                    print(f"  ⚠ {alert}")
-            print("--- end detections ---\n")
-        else:
-            # Summary view
-            by_kind = {}
-            for alert in self.all_alerts:
-                by_kind[alert.kind] = by_kind.get(alert.kind, 0) + 1
-            for kind, count in by_kind.items():
-                print(f"{kind.replace('_', ' ').title()} attempts detected: {count}")
-                self.detected_attack_counts[kind] = count
 
-        
+    def update_true_attack_counts_from_df(self):
+        """Update `self.true_attack_counts` from the parsed log dataframe.
+
+        The log generator tags each attack instance with a `count` value, so each
+        unique `count` within an attack classification corresponds to a single
+        generated attack instance.
+        """
+        if not hasattr(self, "df") or self.df is None or self.df.empty:
+            for key in self.true_attack_counts:
+                self.true_attack_counts[key] = 0
+            return
+
+        for key in self.true_attack_counts:
+            attack_logs = self.df[self.df["classification"] == key]
+            if attack_logs.empty:
+                self.true_attack_counts[key] = 0
+            else:
+                self.true_attack_counts[key] = int(attack_logs["count"].nunique())
 
 
     def process_commands(self, command):
@@ -202,62 +220,30 @@ class Whiskers:
             elif arg == "save":
                 # This should only be run as a solo command (with args). Cancel if there are other args to avoid confusion.
                 # Expected usage: "save" or "save data/etra_run.log" 
-                if len(command)> 3:
-                    print("The 'save' command should be used alone with a filename and optional directory, e.g. 'save test.log' or 'save test.log ./alt_drectory test.log'")
-                    sys.exit(1)
-                if len(command) == 3:
-                    filename = command[1]
-                    directory = command[2]
-                    save_logs(filename, directory)
-                    command.pop(1)
-                    command.pop(1)
-                elif len(command) == 2:                    
-                    filename = command[1]
-                    directory = None
-                    command.pop(1)
-                if len(command) == 1:
-                    filename = f"data/whiskers_log_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.log"
-                    directory = None
-                else:
-                    print("Something went wrong. Please check your command and try again.")
-                    break
-                save_logs(filename, directory)
+                save_logs(command[1:])  # pass any additional args to save_logs for filename/directory handling
+                break # break to avoid processing any additional args after save command
 
             elif arg == "shred":
                 # This should only be run as a solo command (with args). Cancel if there are other args to avoid confusion.
-                if len(command) > 3:
-                    print("The 'shred' command should be used alone with a filename and optional directory, e.g. 'shred test.log' or 'shred test.log ./alt_directory'")
-                    sys.exit(1)
-                if len(command) == 3:
-                    filename = command[1]
-                    directory = command[2]
-                    log_shredder(filename, directory)
-                    command.pop(1)
-                    command.pop(1)
-                elif len(command) == 2:                    
-                    filename = command[1]
-                    directory = None
-                    command.pop(1)
-                if len(command) == 1:
-                    print("Please provide the name of the log file to shred, e.g. 'shred test.log' or 'shred test.log ./alt_directory'")
-                    sys.exit(1)
+                log_shredder(command[1:])  # pass any additional args to log_shredder for filename/directory handling
+                break # break to avoid processing any additional args after shred command
 
-            elif arg in ("-h", "--help", "help"):
+            elif arg in ("-h", "--help"):
                 self.show_help()
 
-            elif arg in ("-v", "--verbose", "verbose"):
+            elif arg in ("-v", "--verbose"):
                 self.mode = "verbose"
             
-            elif arg in ("-g", "--generate", "generate"):
+            elif arg in ("-g", "--generate"):
                 self.gen_new = True
 
-            elif arg in ("-d", "--detect", "detect"):
+            elif arg in ("-d", "--detect"):
                 self.run_detection = True
 
-            elif arg in ("-c", "--check", "check"):
+            elif arg in ("-c", "--check"):
                 self.check = True
             
-            elif arg in ("-s", "--size", "size"):
+            elif arg in ("-s", "--size"):
                 try:
                     self.size = int(command[i + 1])
                     print(f"Set log size to {self.size}")
@@ -265,7 +251,7 @@ class Whiskers:
                 except (ValueError, IndexError):
                     print("Invalid size argument. Using default value of 2000.")
 
-            elif arg in ("-a", "--access-log", "access-log"):
+            elif arg in ("-al", "--access-log", "access-log"):
                 try:
                     path = command[i + 1]
                     self.access_logs = [("access", path)]
@@ -273,7 +259,7 @@ class Whiskers:
                 except IndexError:
                     print("Invalid or missing path for --access-log; keeping default data/access.log.")
 
-            elif arg in ("-ea", "--extra-access-log", "extra-access-log"):
+            elif arg in ("-ea", "--extra-access-log"):
                 try:
                     path = command[i + 1]
                     self.access_logs.append(("access", path))
@@ -281,7 +267,7 @@ class Whiskers:
                 except IndexError:
                     print("Invalid or missing path for --extra-access-log; ignoring.")
 
-            elif arg in ("-fw", "--firewall-log", "firewall-log"):
+            elif arg in ("-fw", "--firewall-log"):
                 try:
                     path = command[i + 1]
                     self.firewall_logs.append(("firewall", path))
@@ -289,6 +275,10 @@ class Whiskers:
                 except IndexError:
                     print("Invalid or missing path for --firewall-log; ignoring.")
             
+            elif arg in ("-as", "--actor-stats"):
+                show_actor_distribution(self.profile_counts, self.log_source_counts)
+                break
+
             elif arg == "mouse":
                 print(self.mouse_art_2[0])
 
@@ -299,24 +289,20 @@ class Whiskers:
 
         # Second pass: execute actions after all arguments are parsed
         if self.gen_new:
-            #print("DEBUG: ", self.true_attack_counts)
-            true_counts = generate_logs(size=self.size)
-            for attack in self.true_attack_counts:
-                #print("Now about to process attack type:", attack)
-                #list all attacks of current type                    
-                #print(f"DEBUG: True count for {attack}: {temp}")
-                self.true_attack_counts[attack] = true_counts[list(self.true_attack_counts.keys()).index(attack)]
-            #print(f"DEBUG: ",self.true_attack_counts)
+            results = generate_logs(size=self.size)
+            self.profile_counts = results[5]
+            self.log_source_counts = results[6]
             self.gen_new = False
             self.mode = "normal"
         
         if self.run_detection:
             self.prepare_dataframe()
+            self.update_true_attack_counts_from_df()
             self.run_detection_models()
             self.run_detection = False
 
         if self.check:
-            check_detection(self.true_attack_counts, self.detected_attack_counts, self.df)
+            check_detection_stats(self.true_attack_counts, self.detected_attack_counts)
             self.check = False
 
     def await_input(self):
