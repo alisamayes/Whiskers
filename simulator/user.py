@@ -75,21 +75,21 @@ class User:
         }
 
         if attack_type in attack_functions:
-             # Get the attack logs
-            logs = attack_functions[attack_type](self.ip, current_time, global_counters[attack_type])
+             # Get the attack logs and updated time
+            logs, new_time = attack_functions[attack_type](self.ip, current_time, global_counters[attack_type])
 
             # Update counters
             self.attack_counts[attack_type] += 1
             global_counters[attack_type] += 1
 
-            return logs
-        return []
+            return logs, new_time
+        return [], current_time
 
     def perform_normal_traffic(self, current_time):
-        """Generate normal traffic for this user."""
+        """Generate normal traffic for this user and advance time."""
         from simulator.log_simulator import generate_normal_request
-        time_str = current_time.strftime("%d/%b/%Y:%H:%M:%S")
-        return [generate_normal_request(time_str)]
+        log, new_time = generate_normal_request(current_time)
+        return [log], new_time
 
 
 # Profile configurations

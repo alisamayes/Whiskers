@@ -13,16 +13,16 @@ class BruteForceDetector(BaseDetector):
     kind = "brute_force"
     description = "Detects repeated failed login attempts (401 on /login)"
 
-    def __init__(self, threshold: int = 5, time_window: str = "2min"):
+    def __init__(self, threshold: int = 5, session_gap_seconds: int = 60):
         """
         Initialize brute force detector.
         
         Args:
-            threshold: Minimum number of failed attempts within time window to alert.
-            time_window: Pandas time window string (e.g., '1min', '5min').
+            threshold: Minimum number of failed attempts within a burst to alert.
+            session_gap_seconds: Gap in seconds between attempts that starts a new burst.
         """
         super().__init__(threshold)
-        self.time_window = time_window
+        self.session_gap_seconds = session_gap_seconds
 
     def detect(self, df: pd.DataFrame) -> List[ThreatAlert]:
         """
@@ -37,7 +37,7 @@ class BruteForceDetector(BaseDetector):
         """
         alerts = []
 
-        # Filter for failed login attempts (behavioral detection)
+        # Filter for failed login attempts (behavioral detection, no use of classification/count)
         failed = df[
             (df["path"] == "/login") &
             (df["status"] == 401) &
@@ -47,75 +47,43 @@ class BruteForceDetector(BaseDetector):
         if failed.empty:
             return alerts
 
-        # Convert time_window string to timedelta
-        window_mapping = {
-            "30s": pd.Timedelta(seconds=30),
-            "1min": pd.Timedelta(minutes=1),
-            "2min": pd.Timedelta(minutes=2),
-            "5min": pd.Timedelta(minutes=5),
-            "10min": pd.Timedelta(minutes=10),
-        }
-        window_td = window_mapping.get(self.time_window, pd.Timedelta(minutes=2))
-
-        # Sort by IP and timestamp
         failed = failed.sort_values(["ip", "timestamp"]).reset_index(drop=True)
+        gap = pd.Timedelta(seconds=self.session_gap_seconds)
 
-        # When the log generator provides an explicit "count" field per attack instance,
-        # we can use it to align detection with the ground truth in the log.
-        # This is useful for evaluation / ML training on generated datasets.
-        # Note dumbass AI keeps messing up. fix later too annoyed right now
-        if failed["count"].nunique() > 1:
-            for (ip, attack_id), group in failed.groupby(["ip", "count"]):
-                if len(group) >= self.threshold:
-                    alerts.append(
-                        ThreatAlert(
-                            ip=ip,
-                            timestamp=group["timestamp"].max(),
-                            kind=self.kind,
-                            count=len(group),
-                            confidence=0.95,
-                        )
-                    )
-            return alerts
+        # Sessionise per IP: a "burst" is a sequence of failed logins with gaps <= session_gap_seconds
+        for ip, group in failed.groupby("ip"):
+            group = group.sort_values("timestamp")
+            session_start_idx = 0
 
-        # Otherwise fall back to a sliding-window burst detection to work on real logs
-        # where there is no explicit per-instance attack identifier.
-        for ip in failed["ip"].unique():
-            ip_attempts = failed[failed["ip"] == ip].reset_index(drop=True)
+            for i in range(1, len(group)):
+                prev_ts = group.iloc[i - 1]["timestamp"]
+                cur_ts = group.iloc[i]["timestamp"]
 
-            if len(ip_attempts) < self.threshold:
-                continue
-
-            # Use sliding window to detect bursts
-            detected_bursts = set()  # Track detected bursts by start time
-
-            # For each attempt, check if it forms part of a burst
-            for i, row in ip_attempts.iterrows():
-                current_time = row["timestamp"]
-
-                # Look back in time to find attempts within the window
-                window_start = current_time - window_td
-                window_attempts = ip_attempts[
-                    (ip_attempts["timestamp"] >= window_start) &
-                    (ip_attempts["timestamp"] <= current_time)
-                ]
-
-                attempts_in_window = len(window_attempts)
-
-                # If we have enough attempts in the window, it's a burst
-                if attempts_in_window >= self.threshold:
-                    # Use the earliest timestamp in this window as burst identifier
-                    burst_start = window_attempts["timestamp"].min()
-
-                    if burst_start not in detected_bursts:
-                        detected_bursts.add(burst_start)
+                if cur_ts - prev_ts > gap:
+                    session = group.iloc[session_start_idx:i]
+                    if len(session) >= self.threshold:
                         alerts.append(
                             ThreatAlert(
                                 ip=ip,
-                                timestamp=current_time,  # Use current time for alert
+                                timestamp=session["timestamp"].max(),
                                 kind=self.kind,
-                                count=attempts_in_window,
-                                confidence=0.95
+                                count=len(session),
+                                confidence=0.95,
                             )
                         )
+                    session_start_idx = i
+
+            # Final session for this IP
+            session = group.iloc[session_start_idx:]
+            if len(session) >= self.threshold:
+                alerts.append(
+                    ThreatAlert(
+                        ip=ip,
+                        timestamp=session["timestamp"].max(),
+                        kind=self.kind,
+                        count=len(session),
+                        confidence=0.95,
+                    )
+                )
+
         return alerts

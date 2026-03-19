@@ -33,14 +33,14 @@ class SqlInjectionDetector(BaseDetector):
     kind = "sql_injection"
     description = "Detects SQLi-style payloads in request paths or query strings"
 
-    def __init__(self, threshold: int = 3, time_window: str = "5min"):
+    def __init__(self, threshold: int = 3, session_gap_seconds: int = 60):
         """
         Args:
-            threshold: Number of suspicious requests per IP per time window to alert.
-            time_window: Pandas time window string.
+            threshold: Number of suspicious requests per IP within a burst to alert.
+            session_gap_seconds: Gap in seconds between suspicious requests that starts a new burst.
         """
         super().__init__(threshold)
-        self.time_window = time_window
+        self.session_gap_seconds = session_gap_seconds
 
     def is_suspicious(self, path: str) -> bool:
         lower = path.lower()
@@ -56,25 +56,44 @@ class SqlInjectionDetector(BaseDetector):
         if suspicious.empty:
             return alerts
 
-        suspicious = suspicious.set_index("timestamp")
+        suspicious = suspicious.sort_values(["ip", "timestamp"])
+        gap = pd.Timedelta(seconds=self.session_gap_seconds)
 
-        counts = (
-            suspicious
-            .groupby(["ip", pd.Grouper(freq=self.time_window)])["path"]
-            .size()
-        )
-        flagged = counts[counts >= self.threshold]
+        # Sessionise per IP: a SQLi attack is a burst of suspicious paths
+        for ip, group in suspicious.groupby("ip"):
+            group = group.sort_values("timestamp")
+            session_start_idx = 0
 
-        for (ip, time), count in flagged.items():
-            alerts.append(
-                ThreatAlert(
-                    ip=ip,
-                    timestamp=time,
-                    kind=self.kind,
-                    count=int(count),
-                    confidence=0.9,
+            for i in range(1, len(group)):
+                prev_ts = group.iloc[i - 1]["timestamp"]
+                cur_ts = group.iloc[i]["timestamp"]
+
+                if cur_ts - prev_ts > gap:
+                    session = group.iloc[session_start_idx:i]
+                    if len(session) >= self.threshold:
+                        alerts.append(
+                            ThreatAlert(
+                                ip=ip,
+                                timestamp=session["timestamp"].max(),
+                                kind=self.kind,
+                                count=int(len(session)),
+                                confidence=0.9,
+                            )
+                        )
+                    session_start_idx = i
+
+            # Final session for this IP
+            session = group.iloc[session_start_idx:]
+            if len(session) >= self.threshold:
+                alerts.append(
+                    ThreatAlert(
+                        ip=ip,
+                        timestamp=session["timestamp"].max(),
+                        kind=self.kind,
+                        count=int(len(session)),
+                        confidence=0.9,
+                    )
                 )
-            )
 
         return alerts
 

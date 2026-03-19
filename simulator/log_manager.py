@@ -30,13 +30,13 @@ def save_logs(args):
     if not os.path.exists(directory):
         os.makedirs(directory)
 
-    destination = os.path.join(directory, filename)
+    file_path = os.path.join(directory, filename)
 
     # Copy the current access log to the new destination
-    with open("data/access.log", "r") as src, open(destination, "w") as dst:
+    with open("data/access.log", "r") as src, open(file_path, "w") as dst:
         dst.write(src.read())
 
-    print(f"Logs saved to {destination}")
+    print(f"Agent Whiskers saved the log {file_path} with all the valuable cheese")
 
 
 def log_shredder(args):
@@ -68,6 +68,6 @@ def log_shredder(args):
     
     if os.path.exists(file_path):        
         os.remove(file_path)
-        print(f"Log file {file_path} has been deleted.")
+        print(f"Agent Whiskers has shredded the file {file_path}. All evidence has been erased. The cheese is safe.")
     else:
         print(f"Log file {file_path} does not exist.")

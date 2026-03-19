@@ -74,7 +74,8 @@ USER_AGENTS = [
 
 
 
-def generate_normal_request(time):
+def generate_normal_request(current_time):
+    """Generate a single normal request and advance time by a small random delta."""
 
     ip = random.choice(IPS_NORMAL)
     path = random.choice(PATHS_NORMAL)
@@ -83,9 +84,12 @@ def generate_normal_request(time):
     # simulate different response sizes (in bytes)
     bytes_sent = random.randint(300, 5000)
 
-    log = f'{ip} - - [{time}] "GET {path} HTTP/1.1" {status} {bytes_sent} "{agent}" normal'
+    time_str = current_time.strftime("%d/%b/%Y:%H:%M:%S")
+    log = f'{ip} - - [{time_str}] "GET {path} HTTP/1.1" {status} {bytes_sent} "{agent}" normal'
 
-    return log
+    # Advance time by 1–5 seconds between normal requests
+    new_time = current_time + datetime.timedelta(seconds=random.randint(1, 5))
+    return log, new_time
 
 
 def brute_force_attack(ip, current_time, count):
@@ -105,7 +109,7 @@ def brute_force_attack(ip, current_time, count):
 
         current_time += datetime.timedelta(seconds=1)
 
-    return logs
+    return logs, current_time
 
 
 def directory_scan(ip, current_time, count):
@@ -123,7 +127,7 @@ def directory_scan(ip, current_time, count):
         
         current_time += datetime.timedelta(seconds=1)
     
-    return logs
+    return logs, current_time
 
 def request_flood(ip, current_time, count):
 
@@ -141,7 +145,7 @@ def request_flood(ip, current_time, count):
 
         current_time += datetime.timedelta(milliseconds=200)
 
-    return logs
+    return logs, current_time
 
 
 def sql_injection_attack(ip, current_time, count):
@@ -161,7 +165,7 @@ def sql_injection_attack(ip, current_time, count):
 
         current_time += datetime.timedelta(seconds=3)
 
-    return logs
+    return logs, current_time
 
 
 def exfiltration_attack(ip, current_time, count):
@@ -181,7 +185,7 @@ def exfiltration_attack(ip, current_time, count):
 
         current_time += datetime.timedelta(seconds=5)
 
-    return logs
+    return logs, current_time
 
 
 def generate_logs(size=2000, users = 100):
@@ -229,7 +233,7 @@ def generate_logs(size=2000, users = 100):
 
                 # User performs an attack
                 if profile == "scanner":
-                    logs = user.perform_attack(
+                    logs, current_time = user.perform_attack(
                         "directory_scan",
                         current_time,
                         {"directory_scan": scan_count},
@@ -237,7 +241,7 @@ def generate_logs(size=2000, users = 100):
                     scan_count += 1
                 else:
                     attack_type = user.choose_attack_type()
-                    logs = user.perform_attack(
+                    logs, current_time = user.perform_attack(
                         attack_type,
                         current_time,
                         {
@@ -259,7 +263,7 @@ def generate_logs(size=2000, users = 100):
                         exfil_count += 1
             else:
                 # Normal traffic for this user
-                logs = user.perform_normal_traffic(current_time)
+                logs, current_time = user.perform_normal_traffic(current_time)
 
             log_source_counts[user.profile] += 1
 

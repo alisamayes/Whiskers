@@ -13,16 +13,16 @@ class ScanDetector(BaseDetector):
     kind = "directory_scan"
     description = "Detects probing for multiple paths (404 errors on different endpoints)"
 
-    def __init__(self, threshold: int = 4, time_window: str = "30s"):
+    def __init__(self, threshold: int = 4, session_gap_seconds: int = 10):
         """
         Initialize scan detector.
         
         Args:
-            threshold: Number of unique 404 paths per time window to alert.
-            time_window: Pandas time window string (e.g., '30s', '1min').
+            threshold: Number of unique 404 paths within a scan burst to alert.
+            session_gap_seconds: Gap in seconds between 404s that starts a new burst.
         """
         super().__init__(threshold)
-        self.time_window = time_window
+        self.session_gap_seconds = session_gap_seconds
 
     def detect(self, df: pd.DataFrame) -> List[ThreatAlert]:
         """
@@ -36,29 +36,51 @@ class ScanDetector(BaseDetector):
         """
         alerts = []
 
-        # Filter for 404 responses
+        # Filter for 404 responses (no use of classification/count)
         failed_requests = df[df["status"] == 404].copy()
 
         if failed_requests.empty:
             return alerts
 
-        failed_requests = failed_requests.set_index("timestamp")
+        failed_requests = failed_requests.sort_values(["ip", "timestamp"])
+        gap = pd.Timedelta(seconds=self.session_gap_seconds)
 
-        # Group by IP and resample, count unique paths with 404
-        path_counts = failed_requests.groupby("ip").resample(self.time_window)["path"].nunique()
+        # Sessionise per IP: a scan is a sequence of 404s with small gaps
+        for ip, group in failed_requests.groupby("ip"):
+            group = group.sort_values("timestamp")
+            session_start_idx = 0
 
-        # Alert on IPs with many unique failed paths
-        suspicious = path_counts[path_counts > self.threshold]
+            for i in range(1, len(group)):
+                prev_ts = group.iloc[i - 1]["timestamp"]
+                cur_ts = group.iloc[i]["timestamp"]
 
-        for (ip, time), count in suspicious.items():
-            alerts.append(
-                ThreatAlert(
-                    ip=ip,
-                    timestamp=time,
-                    kind=self.kind,
-                    count=int(count),
-                    confidence=0.85  # Good confidence but some false positives possible
+                if cur_ts - prev_ts > gap:
+                    session = group.iloc[session_start_idx:i]
+                    unique_paths = session["path"].nunique()
+                    if unique_paths >= self.threshold:
+                        alerts.append(
+                            ThreatAlert(
+                                ip=ip,
+                                timestamp=session["timestamp"].max(),
+                                kind=self.kind,
+                                count=int(unique_paths),
+                                confidence=0.85,
+                            )
+                        )
+                    session_start_idx = i
+
+            # Final session for this IP
+            session = group.iloc[session_start_idx:]
+            unique_paths = session["path"].nunique()
+            if unique_paths >= self.threshold:
+                alerts.append(
+                    ThreatAlert(
+                        ip=ip,
+                        timestamp=session["timestamp"].max(),
+                        kind=self.kind,
+                        count=int(unique_paths),
+                        confidence=0.85,
+                    )
                 )
-            )
 
         return alerts

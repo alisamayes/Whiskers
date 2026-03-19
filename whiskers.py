@@ -28,9 +28,12 @@ class Whiskers:
         self.run_detection = False
         self.size = 2000
         # default access log sources
-        self.access_logs: List[Tuple[str, str]] = [("access", "data/access.log")]
+        # each entry: {"name": str, "path": str, "format": str}
+        self.access_logs = [
+            {"name": "access", "path": "data/access.log", "format": "whiskers_access"}
+        ]
         # optional firewall log sources
-        self.firewall_logs: List[Tuple[str, str]] = []
+        self.firewall_logs = []
         
         # Initialize detectors with configurable thresholds
         self.detectors = [
@@ -150,12 +153,12 @@ class Whiskers:
     def prepare_dataframe(self):
         """Load configured log files into a dataframe and compute features."""
         frames = []
-        for source_name, path in self.access_logs:
-            df_part = parse_logs(path, source=source_name)
+        for src in self.access_logs:
+            df_part = parse_logs(src["path"], source=src["name"])
             frames.append(df_part)
 
-        for source_name, path in self.firewall_logs:
-            df_part = parse_firewall_logs(path, source=source_name)
+        for src in self.firewall_logs:
+            df_part = parse_firewall_logs(src["path"], source=src["name"])
             frames.append(df_part)
 
         if frames:
@@ -254,7 +257,9 @@ class Whiskers:
             elif arg in ("-al", "--access-log", "access-log"):
                 try:
                     path = command[i + 1]
-                    self.access_logs = [("access", path)]
+                    self.access_logs = [
+                        {"name": "access", "path": path, "format": "whiskers_access"}
+                    ]
                     i += 1
                 except IndexError:
                     print("Invalid or missing path for --access-log; keeping default data/access.log.")
@@ -262,7 +267,9 @@ class Whiskers:
             elif arg in ("-ea", "--extra-access-log"):
                 try:
                     path = command[i + 1]
-                    self.access_logs.append(("access", path))
+                    self.access_logs.append(
+                        {"name": "access", "path": path, "format": "whiskers_access"}
+                    )
                     i += 1
                 except IndexError:
                     print("Invalid or missing path for --extra-access-log; ignoring.")
@@ -270,7 +277,9 @@ class Whiskers:
             elif arg in ("-fw", "--firewall-log"):
                 try:
                     path = command[i + 1]
-                    self.firewall_logs.append(("firewall", path))
+                    self.firewall_logs.append(
+                        {"name": "firewall", "path": path, "format": "whiskers_firewall"}
+                    )
                     i += 1
                 except IndexError:
                     print("Invalid or missing path for --firewall-log; ignoring.")

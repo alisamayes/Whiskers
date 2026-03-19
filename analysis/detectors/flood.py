@@ -13,18 +13,16 @@ class FloodDetector(BaseDetector):
     kind = "request_flood"
     description = "Detects unusual request spike patterns (high request rate)"
 
-    def __init__(self, threshold: int = 100, time_window: str = "60s", min_gap: int = 60):
+    def __init__(self, threshold: int = 100, session_gap_seconds: int = 5):
         """
         Initialize flood detector.
         
         Args:
-            threshold: Number of requests per time window to alert.
-            time_window: Pandas time window string (e.g., '60s', '1min').
-            min_gap: Minimum seconds between separate alerts for same IP.
+            threshold: Number of requests within a flood burst to alert.
+            session_gap_seconds: Gap in seconds between requests that starts a new burst.
         """
         super().__init__(threshold)
-        self.time_window = time_window
-        self.min_gap = min_gap
+        self.session_gap_seconds = session_gap_seconds
 
     def detect(self, df: pd.DataFrame) -> List[ThreatAlert]:
         """
@@ -41,33 +39,43 @@ class FloodDetector(BaseDetector):
         if df.empty:
             return alerts
 
-        df = df.sort_values("timestamp").copy()
-        df = df.set_index("timestamp")
+        df = df.sort_values(["ip", "timestamp"]).copy()
+        gap = pd.Timedelta(seconds=self.session_gap_seconds)
 
-        # Group by IP and find rolling request counts
+        # Sessionise per IP: a flood is a sequence of closely spaced requests
         for ip, group in df.groupby("ip"):
-            rolling_counts = group["path"].rolling(self.time_window).count()
+            group = group.sort_values("timestamp")
+            session_start_idx = 0
 
-            # Find times where count exceeds threshold
-            flood_points = rolling_counts[rolling_counts > self.threshold]
+            for i in range(1, len(group)):
+                prev_ts = group.iloc[i - 1]["timestamp"]
+                cur_ts = group.iloc[i]["timestamp"]
 
-            if flood_points.empty:
-                continue
-
-            # De-duplicate: only alert once per min_gap seconds per IP
-            last_alert_time = None
-
-            for time, count in flood_points.items():
-                if last_alert_time is None or (time - last_alert_time).total_seconds() > self.min_gap:
-                    alerts.append(
-                        ThreatAlert(
-                            ip=ip,
-                            timestamp=time,
-                            kind=self.kind,
-                            count=int(count),
-                            confidence=0.90  # Very high confidence for rate anomalies
+                if cur_ts - prev_ts > gap:
+                    session = group.iloc[session_start_idx:i]
+                    if len(session) >= self.threshold:
+                        alerts.append(
+                            ThreatAlert(
+                                ip=ip,
+                                timestamp=session["timestamp"].max(),
+                                kind=self.kind,
+                                count=int(len(session)),
+                                confidence=0.90,
+                            )
                         )
+                    session_start_idx = i
+
+            # Final session for this IP
+            session = group.iloc[session_start_idx:]
+            if len(session) >= self.threshold:
+                alerts.append(
+                    ThreatAlert(
+                        ip=ip,
+                        timestamp=session["timestamp"].max(),
+                        kind=self.kind,
+                        count=int(len(session)),
+                        confidence=0.90,
                     )
-                    last_alert_time = time
+                )
 
         return alerts
