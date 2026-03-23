@@ -301,6 +301,7 @@ class Whiskers:
             results = generate_logs(size=self.size)
             self.profile_counts = results[5]
             self.log_source_counts = results[6]
+            self.ips_that_attacked = results[7]
             self.gen_new = False
             self.mode = "normal"
         
@@ -311,7 +312,7 @@ class Whiskers:
             self.run_detection = False
 
         if self.check:
-            check_detection_stats(self.true_attack_counts, self.detected_attack_counts)
+            check_detection_stats(self.true_attack_counts, self.detected_attack_counts, self.ips_that_attacked)
             self.check = False
 
     def await_input(self):

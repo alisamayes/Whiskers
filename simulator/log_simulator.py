@@ -210,7 +210,10 @@ def generate_logs(size=2000, users = 100):
         "compromised": 0
     }
 
-    users = [User() for _ in range(users)]
+    used_ips = []
+    ips_that_attacked = {}
+
+    users = [User(used_ips) for _ in range(users)]
 
     for user in users:
         profile_counts[user.profile] += 1
@@ -261,6 +264,15 @@ def generate_logs(size=2000, users = 100):
                         sqli_count += 1
                     elif attack_type == "data_exfiltration":
                         exfil_count += 1
+
+                # if ip hasnt already attacked, add the ip, profile type and count to the ips_that_attacked dict
+                if user.ip not in ips_that_attacked:
+                    ips_that_attacked[user.ip] = {
+                        "profile": user.profile,
+                        "attack_counts": user.attack_counts.copy(),  # Copy to avoid reference issues
+                        "total_attacks": 0  # Will calculate at the end
+                    }
+
             else:
                 # Normal traffic for this user
                 logs, current_time = user.perform_normal_traffic(current_time)
@@ -270,9 +282,24 @@ def generate_logs(size=2000, users = 100):
             # Ensure each log entry is written on its own line
             for line in logs:
                 f.write(line + "\n")
-              
+
+        # Calculate final totals after all attacks are complete
+        for ip, data in ips_that_attacked.items():
+            # Find the user with this IP to get their final attack counts
+            user = next((u for u in users if u.ip == ip), None)
+            if user:
+                data["attack_counts"] = user.attack_counts.copy()
+                data["total_attacks"] = sum(user.attack_counts.values())
+        
+        '''
+        print("\n=== IPs That Attacked ===")
+        for ip, data in ips_that_attacked.items():
+            print(f"IP: {ip} | Profile: {data['profile']} | Total Attacks: {data['total_attacks']}")
+            print(f"  Breakdown: {data['attack_counts']}")
+        print("=========================\n") 
+        '''
 
     report_generation_stats(bf_count, scan_count, flood_count, sqli_count, exfil_count)
-    return bf_count, scan_count, flood_count, sqli_count, exfil_count, profile_counts, log_source_counts
+    return bf_count, scan_count, flood_count, sqli_count, exfil_count, profile_counts, log_source_counts, ips_that_attacked
 
 

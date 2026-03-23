@@ -1,5 +1,8 @@
 """Train a simple supervised IP-level classifier (normal vs threat).
 
+run with:
+python -m analysis.train_supervised_ip_classifier
+
 This script:
 - Parses access logs from data/access.log
 - Builds per-IP aggregate features

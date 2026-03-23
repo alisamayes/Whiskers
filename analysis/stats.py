@@ -37,11 +37,14 @@ def report_detection_stats(all_alerts, detected_attack_counts, mode):
         for alert in all_alerts:
             by_kind[alert.kind] = by_kind.get(alert.kind, 0) + 1
         for kind, count in by_kind.items():
-            print(f"{kind.replace('_', ' ').title()} attempts detected: {count}")
+            if kind == "ml_anomaly":
+                print(f"ML isolation forest identified {count} anomalous/ hostile IPs")
+            else:
+                print(f"{kind.replace('_', ' ').title()} attempts detected: {count}")
             detected_attack_counts[kind] = count
 
 
-def check_detection_stats(true_counts, detected_counts):
+def check_detection_stats(true_counts, detected_counts, ips_that_attacked):
     print("\nChecking model accuracy results. Comparing detected attack count against true attack count...")
     
 
@@ -60,3 +63,13 @@ def check_detection_stats(true_counts, detected_counts):
 
         else:
             print(f"{attack_type.replace('_', ' ').title()} accuracy: 100%. Detected all {true} generated attempts.")
+    
+    # check ML anomaly detection separately since it doesn't have a true count in the same way
+    if "ml_anomaly" in detected_counts:
+        hostile_count = 0
+        # total amount of unique IPs that attacked and are not normal ips
+        for ip in ips_that_attacked:
+            if ips_that_attacked[ip] != "normal":
+                hostile_count += 1
+
+        print(f"ML Isolation Forest detected {detected_counts['ml_anomaly']} anomalous/ hostile IPs out of {hostile_count} total unique attacking IPs.")
