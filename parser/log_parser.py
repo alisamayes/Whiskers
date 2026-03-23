@@ -3,8 +3,9 @@ import pandas as pd
 
 # Access log pattern
 # Example line:
-# 103.44.12.9 - - [10/Mar/2026:08:30:47] "GET /admin HTTP/1.1" 404 532 "curl/7.68" directory_scan 3
-ACCESS_PATTERN = r'(\d+\.\d+\.\d+\.\d+) - - \[(.*?)\] "(GET|POST) (.*?) HTTP/1.1" (\d+) (\d+) "(.*?)"(?: (\w+(?:_\w+)*) (\d+))?'
+# 103.78.90.123 - - [23/Mar/2026:10:45:09 +0000] "POST /login HTTP/1.1" 401 659 "-" "curl/7.68" brute_force 0 
+# Note: the last two fields are for ML classifaction only and rule based detection ignores it.
+ACCESS_PATTERN = r'(\d+\.\d+\.\d+\.\d+) - - \[(.*?)\] "(GET|POST) (.*?) HTTP/1.1" (\d+) (\d+) "(.*?)" "(.*?)"(?: (\w+(?:_\w+)*) (\d+))?'
 
 # Simple firewall log pattern (example):
 # 2026-03-10T12:00:01Z FIREWALL ALLOW src=1.2.3.4 dst=5.6.7.8 dport=443 proto=tcp bytes=1234
@@ -17,7 +18,6 @@ FIREWALL_PATTERN = (
 def parse_logs(file, source: str = "access"):
 
     logs = []
-
     with open(file) as f:
 
         for line in f:
@@ -26,7 +26,7 @@ def parse_logs(file, source: str = "access"):
 
             if match:
 
-                ip, timestamp, method, path, status, bytes_sent, agent, classification, count = match.groups()
+                ip, timestamp, method, path, status, bytes_sent, referer, agent, classification, count = match.groups()
 
                 logs.append({
                     "ip": ip,
@@ -35,6 +35,7 @@ def parse_logs(file, source: str = "access"):
                     "path": path,
                     "status": int(status),
                     "bytes_sent": int(bytes_sent),
+                    "referer": referer,
                     "agent": agent,
                     "classification": classification if classification is not None else "normal",
                     "count": int(count) if count is not None else 0,
@@ -46,7 +47,7 @@ def parse_logs(file, source: str = "access"):
     if not df.empty:
         df["timestamp"] = pd.to_datetime(
             df["timestamp"],
-            format="%d/%b/%Y:%H:%M:%S"
+            format="%d/%b/%Y:%H:%M:%S %z"
         )
         df = df.sort_values("timestamp")
 

@@ -138,7 +138,7 @@ class Whiskers:
             -v, --verbose                   Enable verbose output for detect. Shows all detected alerts with details instead of just summary counts.
             -c, --check                     Check for accuracy of detection
             -as, --actor-stats              Show distribution of actor profiles in the generated logs
-            -a, --access-log PATH           Use a specific access log file instead of data/access.log
+            -al, --access-log PATH           Use a specific access log file instead of data/access.log
             -ea, --extra-access-log PATH    Add an additional access log file
             -fw, --firewall-log PATH        Add a firewall log file (WIP)
 

@@ -84,8 +84,8 @@ def generate_normal_request(current_time):
     # simulate different response sizes (in bytes)
     bytes_sent = random.randint(300, 5000)
 
-    time_str = current_time.strftime("%d/%b/%Y:%H:%M:%S")
-    log = f'{ip} - - [{time_str}] "GET {path} HTTP/1.1" {status} {bytes_sent} "{agent}" normal'
+    time_str = current_time.strftime("%d/%b/%Y:%H:%M:%S +0000")
+    log = f'{ip} - - [{time_str}] "GET {path} HTTP/1.1" {status} {bytes_sent} "-" "{agent}" normal'
 
     # Advance time by 1–5 seconds between normal requests
     new_time = current_time + datetime.timedelta(seconds=random.randint(1, 5))
@@ -99,12 +99,12 @@ def brute_force_attack(ip, current_time, count):
 
     for i in range(attempts):
 
-        time = current_time.strftime("%d/%b/%Y:%H:%M:%S")
+        time = current_time.strftime("%d/%b/%Y:%H:%M:%S +0000")
 
         # failed login responses are usually small-ish
         bytes_sent = random.randint(300, 1500)
         logs.append(
-            f'{ip} - - [{time}] "POST /login HTTP/1.1" 401 {bytes_sent} "curl/7.68" brute_force {count}'
+            f'{ip} - - [{time}] "POST /login HTTP/1.1" 401 {bytes_sent} "-" "curl/7.68" brute_force {count}'
         )
 
         current_time += datetime.timedelta(seconds=1)
@@ -118,11 +118,11 @@ def directory_scan(ip, current_time, count):
 
     for path in SCAN_PATHS:
 
-        time = current_time.strftime("%d/%b/%Y:%H:%M:%S")
+        time = current_time.strftime("%d/%b/%Y:%H:%M:%S +0000")
 
         bytes_sent = random.randint(300, 2000)
         logs.append(
-            f'{ip} - - [{time}] "GET {path} HTTP/1.1" 404 {bytes_sent} "curl/7.68" directory_scan {count}'
+            f'{ip} - - [{time}] "GET {path} HTTP/1.1" 404 {bytes_sent} "-" "curl/7.68" directory_scan {count}'
         )
         
         current_time += datetime.timedelta(seconds=1)
@@ -136,11 +136,11 @@ def request_flood(ip, current_time, count):
     for i in range(100):
 
         path = random.choice(PATHS_NORMAL)
-        time = current_time.strftime("%d/%b/%Y:%H:%M:%S")
+        time = current_time.strftime("%d/%b/%Y:%H:%M:%S +0000")
         # lots of requests, size may vary moderately
         bytes_sent = random.randint(300, 4000)
         logs.append(
-            f'{ip} - - [{time}] "GET {path} HTTP/1.1" 200 {bytes_sent} "curl/7.68" request_flood {count}'
+            f'{ip} - - [{time}] "GET {path} HTTP/1.1" 200 {bytes_sent} "-" "curl/7.68" request_flood {count}'
         )
 
         current_time += datetime.timedelta(milliseconds=200)
@@ -154,13 +154,13 @@ def sql_injection_attack(ip, current_time, count):
 
     for path in SQLI_PATTERNS:
 
-        time = current_time.strftime("%d/%b/%Y:%H:%M:%S")
+        time = current_time.strftime("%d/%b/%Y:%H:%M:%S +0000")
         # injection attempts often trigger 400/500 responses with moderate payloads
         status = random.choice([400, 500])
         bytes_sent = random.randint(500, 5000)
 
         logs.append(
-            f'{ip} - - [{time}] "GET {path} HTTP/1.1" {status} {bytes_sent} "curl/7.68" sql_injection {count}'
+            f'{ip} - - [{time}] "GET {path} HTTP/1.1" {status} {bytes_sent} "-" "curl/7.68" sql_injection {count}'
         )
 
         current_time += datetime.timedelta(seconds=3)
@@ -174,13 +174,13 @@ def exfiltration_attack(ip, current_time, count):
 
     for path in EXFIL_PATHS:
 
-        time = current_time.strftime("%d/%b/%Y:%H:%M:%S")
+        time = current_time.strftime("%d/%b/%Y:%H:%M:%S +0000")
         # exfil typically involves large responses
         status = 200
         bytes_sent = random.randint(50_000_000, 200_000_000)  # 50–200 MB
 
         logs.append(
-            f'{ip} - - [{time}] "GET {path} HTTP/1.1" {status} {bytes_sent} "curl/7.68" data_exfiltration {count}'
+            f'{ip} - - [{time}] "GET {path} HTTP/1.1" {status} {bytes_sent} "-" "curl/7.68" data_exfiltration {count}'
         )
 
         current_time += datetime.timedelta(seconds=5)
