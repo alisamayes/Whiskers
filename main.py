@@ -8,10 +8,12 @@
 
 import sys
 from whiskers import Whiskers
-from GUI.main_window import ApplicationWindow
 
 
-whiskers = Whiskers(sys.argv[1:])
-whiskers.await_input()
-#app = ApplicationWindow()
-#app.show()
+def main() -> None:
+    whiskers = Whiskers(sys.argv[1:])
+    whiskers.await_input()
+
+
+if __name__ == "__main__":
+    main()

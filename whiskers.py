@@ -1,5 +1,6 @@
 import sys
-from typing import List, Tuple
+import threading
+from typing import List, Optional, Tuple
 
 import pandas as pd
 
@@ -122,11 +123,16 @@ class Whiskers:
         ''' ]
         print(mouse_art_1[0])
         print("Generating new Whiskers Agent...")
-              
+
+        self._gui_lock = threading.Lock()
+        self._gui_ready = threading.Event()
+        self._gui_thread: Optional[threading.Thread] = None
+        self._qapp = None
+        self._gui_window = None
+        self._ui_bridge = None
+
         # Sort out any additional arguments
         self.process_commands(args)
-
-
 
     def show_help(self):
         help_text = """         Startup Usage: python main.py [options]
@@ -141,6 +147,7 @@ class Whiskers:
             -al, --access-log PATH           Use a specific access log file instead of data/access.log
             -ea, --extra-access-log PATH    Add an additional access log file
             -fw, --firewall-log PATH        Add a firewall log file (WIP)
+            -ui, --ui                       Open the graphical window; use at startup or when prompted (CLI keeps running)
 
             Additional commands (not used with flags):
             save [filename] [directory]     Save the current access log to a new file with optional directory (default directory is ./data/)
@@ -291,6 +298,9 @@ class Whiskers:
             elif arg == "mouse":
                 print(self.mouse_art_2[0])
 
+            elif arg in ("-ui", "--ui"):
+                self.open_ui()
+
             else:
                 print("Unknown argument:", arg, " use -h or --help for command list")
 
@@ -314,6 +324,58 @@ class Whiskers:
         if self.check:
             check_detection_stats(self.true_attack_counts, self.detected_attack_counts, self.ips_that_attacked)
             self.check = False
+
+    def open_ui(self) -> None:
+        with self._gui_lock:
+            need_start = self._gui_thread is None or not self._gui_thread.is_alive()
+            if need_start:
+                self._gui_ready.clear()
+                self._gui_thread = threading.Thread(
+                    target=self._run_gui_thread,
+                    daemon=True,
+                    name="WhiskersQt",
+                )
+                self._gui_thread.start()
+                if not self._gui_ready.wait(timeout=30.0):
+                    print("Whiskers UI failed to start (timed out).")
+                    return
+                print("Whiskers window opened. The CLI stays active; type commands here anytime.")
+                return
+            bridge = self._ui_bridge
+
+        if bridge is not None:
+            bridge.show_ui.emit()
+        else:
+            print("Whiskers UI is not available.")
+
+    def _run_gui_thread(self) -> None:
+        from PyQt6.QtWidgets import QApplication
+        from GUI.main_window import ApplicationWindow, UiBridge
+
+        try:
+            self._qapp = QApplication([sys.argv[0]])
+        except Exception as e:
+            print(f"Whiskers UI: could not start ({e})")
+            self._gui_ready.set()
+            return
+
+        self._qapp.setQuitOnLastWindowClosed(False)
+        self._gui_window = ApplicationWindow()
+        self._gui_window.close_hides_only = True
+        self._gui_window.whiskers = self
+
+        self._ui_bridge = UiBridge()
+
+        def bring_to_front() -> None:
+            self._gui_window.show()
+            self._gui_window.raise_()
+            self._gui_window.activateWindow()
+
+        self._ui_bridge.show_ui.connect(bring_to_front)
+
+        self._gui_window.show()
+        self._gui_ready.set()
+        self._qapp.exec()
 
     def await_input(self):
         while True:
