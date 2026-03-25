@@ -43,7 +43,7 @@ class Whiskers:
             FloodDetector(threshold=100),
             SqlInjectionDetector(threshold=2),
             ExfiltrationDetector(threshold=2_000_000),
-            IsolationForestDetector(contamination=0.1),
+            IsolationForestDetector(),
             SupervisedIPClassifierDetector(),
         ]
 
@@ -147,7 +147,7 @@ class Whiskers:
             -al, --access-log PATH           Use a specific access log file instead of data/access.log
             -ea, --extra-access-log PATH    Add an additional access log file
             -fw, --firewall-log PATH        Add a firewall log file (WIP)
-            -ui, --ui                       Open the graphical window; use at startup or when prompted (CLI keeps running)
+            -ui, --ui                       Open the graphical user interface
 
             Additional commands (not used with flags):
             save [filename] [directory]     Save the current access log to a new file with optional directory (default directory is ./data/)
@@ -339,7 +339,6 @@ class Whiskers:
                 if not self._gui_ready.wait(timeout=30.0):
                     print("Whiskers UI failed to start (timed out).")
                     return
-                print("Whiskers window opened. The CLI stays active; type commands here anytime.")
                 return
             bridge = self._ui_bridge
 

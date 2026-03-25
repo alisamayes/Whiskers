@@ -1,16 +1,16 @@
 """
 Unsupervised anomaly detector using IsolationForest.
-The purpose of this detector is to identify potentially hostile IPs based purely on anomalous traffic patterns,
-without relying on any classification labels. It analyzes aggregate features of traffic per IP and flags those 
-that deviate significantly from normal behavior.
+
+Scores each IP from aggregate *behaviour* (traffic shape only — no classification
+labels). An IP is flagged as a hostile candidate when it is both a multivariate
+outlier (IF) and shows attack-like behaviour (scanning, errors, burst rate, etc.).
 """
 
 from __future__ import annotations
 
-import os
 from typing import List
 
-import joblib
+import numpy as np
 import pandas as pd
 from sklearn.ensemble import IsolationForest
 from sklearn.preprocessing import StandardScaler
@@ -19,118 +19,172 @@ from .base import BaseDetector, ThreatAlert
 from analysis.feature_engineering import basic_aggregate_features
 
 
-class IsolationForestDetector(BaseDetector):
-    """Detect anomalous IPs using an IsolationForest over aggregate features.
+def _robust_left_tail_threshold(scores: np.ndarray, mad_multiplier: float) -> float:
+    """Threshold on sklearn IF score_samples: lower = more anomalous.
 
-    This detector analyzes traffic patterns to identify potentially hostile IPs
-    based purely on behavioral anomalies, without using any classification labels.
+    Uses median minus mad_multiplier * robust sigma (MAD-based). Fewer false
+    positives than forcing a fixed contamination fraction of the population.
     """
+    scores = np.asarray(scores, dtype=float)
+    med = float(np.median(scores))
+    mad = float(np.median(np.abs(scores - med)))
+    sigma = 1.4826 * mad if mad > 1e-12 else float(np.std(scores))
+    if sigma < 1e-12:
+        return med
+    return med - mad_multiplier * sigma
+
+
+def _behavior_enriched_features(df: pd.DataFrame, features: pd.DataFrame) -> pd.DataFrame:
+    """Add behaviour-only columns (no log classification labels)."""
+    out = features.copy()
+    tr = out["total_requests"].clip(lower=1)
+    out["path_scan_ratio"] = (out["unique_paths"] / tr).clip(0.0, 1.0)
+
+    ts = df["timestamp"]
+    if ts.dtype == "O":
+        ts = pd.to_datetime(ts)
+    tg = df.assign(_ts=ts).groupby("ip")["_ts"]
+    span = (tg.max() - tg.min()).dt.total_seconds()
+    span = span.reindex(out.index).fillna(0.0) + 1e-3  # seconds; avoid div0
+    out["requests_per_minute"] = out["total_requests"] / (span / 60.0)
+
+    # Fast / automated traffic: very small mean gap between requests
+    ai = out["avg_interval"].replace(0.0, np.nan).fillna(1e6)
+    out["burstiness"] = 1.0 / (1.0 + ai)  # higher when intervals are short
+
+    if "method" in df.columns:
+        is_post = (df["method"].astype(str).str.upper() == "POST").groupby(df["ip"]).mean()
+        out["post_fraction"] = is_post.reindex(out.index).fillna(0.0)
+    else:
+        out["post_fraction"] = 0.0
+
+    return out.replace([np.inf, -np.inf], np.nan).fillna(0.0)
+
+
+def _behavioral_risk(feat: pd.DataFrame) -> pd.ndarray:
+    """Average percentile rank of attack-shaped signals (0–1), batch-relative."""
+
+    def pct(col: str) -> pd.Series:
+        s = feat[col]
+        if s.nunique() <= 1:
+            return pd.Series(0.5, index=s.index)
+        return s.rank(pct=True)
+
+    parts = [
+        pct("path_scan_ratio"),
+        pct("error_rate"),
+        pct("fraction_4xx"),
+        pct("requests_per_minute"),
+        pct("burstiness"),
+    ]
+    if "post_fraction" in feat.columns:
+        parts.append(pct("post_fraction"))
+    return np.mean([p.values for p in parts], axis=0)
+
+
+class IsolationForestDetector(BaseDetector):
+    """IsolationForest over per-IP behaviour; alerts combine IF scores + behaviour gate."""
 
     kind = "ml_anomaly"
     description = "Unsupervised anomaly detector over per-IP traffic patterns"
 
     def __init__(
         self,
-        contamination: float = 0.1,
+        threshold: int = 0,
         n_estimators: int = 200,
         random_state: int | None = 42,
-        model_path: str = "models/isolation_forest.joblib",
-        scaler_path: str = "models/isolation_scaler.joblib",
+        mad_multiplier: float = 2.5,
+        min_behavioral_risk: float = 0.55,
+        severe_behavioral_risk: float = 0.82,
+        min_ips_for_forest: int = 6,
+        # sklearn needs contamination for training; kept small — alert threshold is MAD-based
+        forest_contamination: float = 0.02,
     ):
-        # threshold is unused but kept for BaseDetector interface compatibility
-        super().__init__(threshold=0)
-        self.contamination = contamination
+        super().__init__(threshold=threshold)
         self.n_estimators = n_estimators
         self.random_state = random_state
-        self.model_path = model_path
-        self.scaler_path = scaler_path
-        self.model = None
-        self.scaler = None
-        self._load_or_create_model()
-
-    def _load_or_create_model(self):
-        """Load existing model or prepare for training."""
-        if os.path.exists(self.model_path) and os.path.exists(self.scaler_path):
-            try:
-                self.model = joblib.load(self.model_path)
-                self.scaler = joblib.load(self.scaler_path)
-                print(f"Loaded existing IsolationForest model from {self.model_path}")
-            except Exception as e:
-                print(f"Failed to load model: {e}. Will train new model.")
-                self.model = None
-                self.scaler = None
-        else:
-            print("No existing IsolationForest model found. Will train on first detection run.")
-
-    def _save_model(self):
-        """Save the trained model and scaler."""
-        os.makedirs(os.path.dirname(self.model_path), exist_ok=True)
-        joblib.dump(self.model, self.model_path)
-        joblib.dump(self.scaler, self.scaler_path)
-        print(f"Saved IsolationForest model to {self.model_path}")
+        self.mad_multiplier = mad_multiplier
+        self.min_behavioral_risk = min_behavioral_risk
+        self.severe_behavioral_risk = severe_behavioral_risk
+        self.min_ips_for_forest = min_ips_for_forest
+        self.forest_contamination = forest_contamination
 
     def detect(self, df: pd.DataFrame) -> List[ThreatAlert]:
         alerts: List[ThreatAlert] = []
-
         if df.empty:
             return alerts
 
-        # Build per-IP feature matrix (purely traffic-based, no classification)
         features = basic_aggregate_features(df)
         if features.empty:
             return alerts
 
-        # Scale features for better anomaly detection
-        if self.scaler is None:
-            self.scaler = StandardScaler()
-            features_scaled = self.scaler.fit_transform(features)
-        else:
-            features_scaled = self.scaler.transform(features)
+        features = _behavior_enriched_features(df, features)
+        feature_cols = features.select_dtypes(include=[np.number]).columns.tolist()
+        X_df = features[feature_cols]
+        ips = features.index.to_list()
+        n = len(features)
 
-        # Fit or update model
-        if self.model is None:
-            # Train new model
-            self.model = IsolationForest(
+        risk = _behavioral_risk(features)
+
+        scaler = StandardScaler()
+        X = scaler.fit_transform(X_df.values)
+
+        use_forest = n >= self.min_ips_for_forest
+        if use_forest:
+            max_samples = min(256, max(2, n))
+            contamination = float(np.clip(self.forest_contamination, 0.001, 0.5))
+            model = IsolationForest(
                 n_estimators=self.n_estimators,
-                contamination=self.contamination,
+                contamination=contamination,
                 random_state=self.random_state,
+                max_samples=max_samples,
             )
-            self.model.fit(features_scaled)
-            self._save_model()
-            print(f"Trained new IsolationForest on {len(features)} IPs")
+            model.fit(X)
+            scores = model.score_samples(X)
+            cutoff = _robust_left_tail_threshold(scores, self.mad_multiplier)
+            if_outlier = scores < cutoff
         else:
-            # Use existing model (could add incremental learning here if needed)
-            pass
+            scores = np.zeros(n)
+            cutoff = float("nan")
+            if_outlier = np.zeros(n, dtype=bool)
 
-        # Predict anomalies: -1 = anomaly (hostile), 1 = normal
-        preds = self.model.predict(features_scaled)
-        scores = self.model.decision_function(features_scaled)
+        for i, ip in enumerate(ips):
+            r = float(risk[i])
+            hostile = (
+                use_forest
+                and if_outlier[i]
+                and r >= self.min_behavioral_risk
+            ) or (r >= self.severe_behavioral_risk)
 
-        # Count classifications
-        normal_count = sum(pred == 1 for pred in preds)
-        hostile_count = sum(pred == -1 for pred in preds)
-        total_ips = len(features)
+            if not hostile:
+                continue
 
-        print(f"\n--- IsolationForest Anomaly Detection Results ---")
-        print(f"Total unique IPs analyzed: {total_ips}")
-        print(f"Classified as normal users: {normal_count} ({normal_count/total_ips*100:.1f}%)")
-        print(f"Classified as hostile attackers: {hostile_count} ({hostile_count/total_ips*100:.1f}%)")
-        print(".1f")
-        print("--------------------------------------------------\n")
+            if use_forest and scores[i] < cutoff:
+                depth = float((cutoff - scores[i]) / (abs(cutoff) + 1e-6))
+                conf = float(np.clip(0.35 + 0.4 * min(1.0, depth) + 0.25 * r, 0.0, 1.0))
+            else:
+                conf = float(np.clip(0.5 + 0.5 * r, 0.0, 1.0))
 
-        # Generate alerts for hostile IPs
-        for ip, pred, score in zip(features.index, preds, scores):
-            if pred == -1:  # Hostile/anomalous
-                alerts.append(
-                    ThreatAlert(
-                        ip=str(ip),
-                        timestamp=None,
-                        kind=self.kind,
-                        count=1,
-                        # Convert anomaly score to confidence (lower score = more anomalous)
-                        confidence=float(max(0.0, min(1.0, (-score + 0.5) * 2))),  # Rough mapping
-                    )
+            alerts.append(
+                ThreatAlert(
+                    ip=str(ip),
+                    timestamp=None,
+                    kind=self.kind,
+                    count=1,
+                    confidence=conf,
                 )
+            )
+
+        print("\n--- Behaviour anomaly detector ---")
+        print(f"Unique IPs in this log: {n}")
+        if use_forest:
+            print(f"Outlier sensitivity: {self.mad_multiplier:g}× ")
+        else:
+            print(f" Only {n} IPs here — not enough for the full model. Only IPs with very extreme attack-like behaviour were considered.")
+        print(
+            f"Flagged as possible hostile IPs: {len(alerts)} "
+            f"(out of {n} unique addresses)"
+        )
+        print("--------------------------------------------------------\n")
 
         return alerts
-
