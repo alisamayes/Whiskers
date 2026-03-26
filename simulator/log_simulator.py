@@ -25,11 +25,12 @@ PATHS_NORMAL = [
 
 SQLI_PATTERNS = [
     "/search?q=' OR 1=1 --",
-    "/search?q=\" OR \"1\"=\"1",
+    "/search?q=%22 OR %221%22=%221",
     "/login?user=admin'--",
     "/products?id=1 UNION SELECT username, password FROM users",
     "/items?id=1; DROP TABLE users",
 ]
+
 
 EXFIL_PATHS = [
     "/backup/full-backup.tar.gz",
@@ -54,6 +55,24 @@ SCAN_PATHS = [
     "/.htaccess",
     "/phpinfo.php",
     "/test.php"
+]
+
+
+COMMAND_INJECTION_PATTERNS = [
+    "/search?q=test;<simulated-command>",
+    "/status?check=value&&<simulated-command>",
+    "/ping?target=example.com||<simulated-command>",
+    "/debug?mode=$(<simulated-command>)",
+    "/info?cmd=`<simulated-command>`",
+    "/action?input=value|<simulated-command>",
+    "/run?x=test%3B<simulated-command>",  
+    "/run?x=test%253B<simulated-command>",
+    "/probe?id=<simulated-command>_delay_test",
+    "/file?name=data;<simulated-command>",
+    "/calculate?num=10;<simulated-command>",
+    "/tools/exec/<simulated-command>_attempt",
+    "/check?param=value;;;<simulated-command>",
+    "/submit?value=$(echo+test)|<simulated-command>",
 ]
 
 USER_AGENTS = [
@@ -188,6 +207,30 @@ def exfiltration_attack(ip, current_time, count):
     return logs, current_time
 
 
+def command_injection_attack(ip, current_time, count):
+
+    logs = []
+    max = len(COMMAND_INJECTION_PATTERNS)
+    temp = COMMAND_INJECTION_PATTERNS.copy()
+    attack_count = random.randint(5,max)
+
+    for i in range(attack_count):
+        
+        time = current_time.strftime("%d/%b/%Y:%H:%M:%S +0000")
+        status = random.choice([500, 403, 200])
+        bytes_sent = random.randint(300, 1500)
+        agent = random.choice(USER_AGENTS)
+        command_choice = random.choice(temp)
+        temp.remove(command_choice)  # Ensure we don't reuse the same pattern in this attack session
+
+        logs.append(
+            f'{ip} - - [{time}] "GET {command_choice} HTTP/1.1" {status} {bytes_sent} "-" "{agent}" command_injection {count}'
+        )
+
+        current_time += datetime.timedelta(seconds = 2)
+
+    return logs, current_time
+
 def generate_logs(size=2000, users = 100):
 
     bf_count = 0
@@ -195,6 +238,7 @@ def generate_logs(size=2000, users = 100):
     flood_count = 0
     sqli_count = 0
     exfil_count = 0
+    commandi_count = 0
 
     profile_counts = {
         "normal": 0,
@@ -253,6 +297,7 @@ def generate_logs(size=2000, users = 100):
                             "request_flood": flood_count,
                             "sql_injection": sqli_count,
                             "data_exfiltration": exfil_count,
+                            "command_injection": commandi_count,
                         },
                     )
 
@@ -264,6 +309,8 @@ def generate_logs(size=2000, users = 100):
                         sqli_count += 1
                     elif attack_type == "data_exfiltration":
                         exfil_count += 1
+                    elif attack_type == "command_injection":
+                        commandi_count += 1
 
                 # if ip hasnt already attacked, add the ip, profile type and count to the ips_that_attacked dict
                 if user.ip not in ips_that_attacked:
@@ -299,7 +346,7 @@ def generate_logs(size=2000, users = 100):
         print("=========================\n") 
         '''
 
-    report_generation_stats(bf_count, scan_count, flood_count, sqli_count, exfil_count)
-    return bf_count, scan_count, flood_count, sqli_count, exfil_count, profile_counts, log_source_counts, ips_that_attacked
+    report_generation_stats(bf_count, scan_count, flood_count, sqli_count, exfil_count, commandi_count)
+    return bf_count, scan_count, flood_count, sqli_count, exfil_count, commandi_count, profile_counts, log_source_counts, ips_that_attacked
 
 

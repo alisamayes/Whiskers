@@ -15,6 +15,7 @@ from analysis.detectors import (
     FloodDetector,
     SqlInjectionDetector,
     ExfiltrationDetector,
+    CommandInjectionDetector,
     IsolationForestDetector,
     SupervisedIPClassifierDetector,
 )
@@ -43,6 +44,7 @@ class Whiskers:
             FloodDetector(threshold=100),
             SqlInjectionDetector(threshold=2),
             ExfiltrationDetector(threshold=2_000_000),
+            CommandInjectionDetector(threshold=2),
             IsolationForestDetector(),
             SupervisedIPClassifierDetector(),
         ]
@@ -53,7 +55,8 @@ class Whiskers:
             "directory_scan": 0,
             "request_flood": 0,
             "sql_injection": 0,
-            "data_exfiltration": 0
+            "data_exfiltration": 0,
+            "command_injection": 0
         }
 
         self.detected_attack_counts = {
@@ -61,7 +64,8 @@ class Whiskers:
             "directory_scan": 0,
             "request_flood": 0,
             "sql_injection": 0,
-            "data_exfiltration": 0
+            "data_exfiltration": 0,
+            "command_injection": 0
         }
 
         # Stats from log generation

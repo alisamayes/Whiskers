@@ -5,7 +5,13 @@ import pandas as pd
 # Example line:
 # 103.78.90.123 - - [23/Mar/2026:10:45:09 +0000] "POST /login HTTP/1.1" 401 659 "-" "curl/7.68" brute_force 0 
 # Note: the last two fields are for ML classifaction only and rule based detection ignores it.
-ACCESS_PATTERN = r'(\d+\.\d+\.\d+\.\d+) - - \[(.*?)\] "(GET|POST) (.*?) HTTP/1.1" (\d+) (\d+) "(.*?)" "(.*?)"(?: (\w+(?:_\w+)*) (\d+))?'
+
+ACCESS_PATTERN = (
+    r'(\d+\.\d+\.\d+\.\d+) - - \[(.*?)\] '
+    r'"(GET|POST) ([^"]*) HTTP/1.1" '
+    r'(\d+) (\d+) "(.*?)" "(.*?)"(?:\s+(\w+(?:_\w+)*))?(?:\s+(\d+))?'
+)
+
 
 # Simple firewall log pattern (example):
 # 2026-03-10T12:00:01Z FIREWALL ALLOW src=1.2.3.4 dst=5.6.7.8 dport=443 proto=tcp bytes=1234
@@ -23,6 +29,8 @@ def parse_logs(file, source: str = "access"):
         for line in f:
 
             match = re.search(ACCESS_PATTERN, line)
+            if not match:
+                print("NO MATCH: ", line)
 
             if match:
 

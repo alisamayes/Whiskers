@@ -7,14 +7,15 @@ def show_actor_distribution(agent_counts, log_source_counts):
     print(log_source_counts)
 
 
-def report_generation_stats(bf, sc, fl, sqli, exfil):
+def report_generation_stats(bf, sc, fl, sqli, exfil, commandi):
     print(
         "The current log was generated with: "
         f"{bf} brute force attacks, "
-        f"{sc} directory scans, "
-        f"{fl} request floods, "
-        f"{sqli} SQL injection attacks, and "
-        f"{exfil} data exfiltration attempts."
+        f"{sc} directory scans attacks, "
+        f"{fl} request floods attacks, "
+        f"{sqli} SQL injection attacks "
+        f"{exfil} data exfiltration attack attempts, and "
+        f"{commandi} command injection attack attempts."
     )
 
 def report_detection_stats(all_alerts, detected_attack_counts, mode):

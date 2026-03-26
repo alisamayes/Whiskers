@@ -26,7 +26,8 @@ class User:
             "directory_scan": 0,
             "request_flood": 0,
             "sql_injection": 0,
-            "data_exfiltration": 0
+            "data_exfiltration": 0,
+            "command_injection": 0
         }
 
 
@@ -43,11 +44,12 @@ class User:
         elif self.profile in ["attacker", "compromised", "normal"]:
             # Attackers and compromised users can do any attack
             attack_weights = {
-                "brute_force": 0.3,
+                "brute_force": 0.2,
                 "directory_scan": 0.1,
                 "request_flood": 0.2,
                 "sql_injection": 0.2,
-                "data_exfiltration": 0.2
+                "data_exfiltration": 0.1,
+                "command_injection": 0.2
             }
             attacks = list(attack_weights.keys())
             weights = list(attack_weights.values())
@@ -60,7 +62,7 @@ class User:
         """Perform an attack and update counters."""
         from simulator.log_simulator import (
             brute_force_attack, directory_scan, request_flood,
-            sql_injection_attack, exfiltration_attack
+            sql_injection_attack, exfiltration_attack, command_injection_attack
         )
 
         attack_functions = {
@@ -68,7 +70,8 @@ class User:
             "directory_scan": directory_scan,
             "request_flood": request_flood,
             "sql_injection": sql_injection_attack,
-            "data_exfiltration": exfiltration_attack
+            "data_exfiltration": exfiltration_attack,
+            "command_injection": command_injection_attack
         }
 
         if attack_type in attack_functions:
