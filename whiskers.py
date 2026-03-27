@@ -5,8 +5,7 @@ from typing import List, Optional, Tuple
 import pandas as pd
 
 from analysis.stats import report_detection_stats, show_actor_distribution
-from analysis.stats import show_actor_distribution
-from parser.log_parser import parse_logs, parse_firewall_logs
+from parser.log_parser import parse_logs, parse_firewall_logs, parse_auth_logs
 from analysis import feature_engineering
 from analysis.stats import check_detection_stats
 from analysis.detectors import (
@@ -22,11 +21,28 @@ from analysis.detectors import (
 from simulator.log_simulator import generate_logs
 from simulator.log_manager import save_logs, log_shredder
 
+
+def _normalize_timestamps_naive_utc(df: pd.DataFrame) -> pd.DataFrame:
+    """Make ``timestamp`` timezone-naive (UTC wall time) for mixed log sources.
+
+    Access logs are tz-aware; auth and some firewall timestamps are naive.
+    Merging them without normalization causes sort/compare errors.
+    """
+    if df.empty or "timestamp" not in df.columns:
+        return df
+    out = df.copy()
+    ts = pd.to_datetime(out["timestamp"], utc=True)
+    out["timestamp"] = ts.dt.tz_localize(None)
+    return out
+
+
 class Whiskers:
     def __init__(self, args):
         self.mode = "normal"
         self.check = False
         self.gen_new = False
+        self.gen_auth_alongside = False
+        self.gen_auth_only = False
         self.run_detection = False
         self.size = 2000
         # default access log sources
@@ -36,6 +52,8 @@ class Whiskers:
         ]
         # optional firewall log sources
         self.firewall_logs = []
+        # optional Linux auth log sources (auth.log / secure)
+        self.auth_logs = []
         
         # Initialize detectors with configurable thresholds
         self.detectors = [
@@ -142,7 +160,9 @@ class Whiskers:
         help_text = """         Startup Usage: python main.py [options]
             Options:
             -h, --help                      Show this help message
-            -g, --generate                  Generate new logs
+            -g, --generate                  Generate new access log (data/access.log)
+            -gauth, --generate-auth         With -g, also write data/auth.log (interleaved timestamps)
+            -gauthonly, --generate-auth-only  Generate only data/auth.log (normal auth traffic). Alias: -guath
             -s, --size [number]             Base number of actions to generate (default 2000, attacks will generate more log lines)
             -d, --detect                    Rerun detection algorithms on current logs
             -v, --verbose                   Enable verbose output for detect. Shows all detected alerts with details instead of just summary counts.
@@ -151,6 +171,7 @@ class Whiskers:
             -al, --access-log PATH           Use a specific access log file instead of data/access.log
             -ea, --extra-access-log PATH    Add an additional access log file
             -fw, --firewall-log PATH        Add a firewall log file (WIP)
+            -au, --auth-log PATH            Add a Linux auth log file (auth.log / secure; sshd, sudo)
             -ui, --ui                       Open the graphical user interface
 
             Additional commands (not used with flags):
@@ -172,12 +193,22 @@ class Whiskers:
             df_part = parse_firewall_logs(src["path"], source=src["name"])
             frames.append(df_part)
 
+        for src in self.auth_logs:
+            df_part = parse_auth_logs(src["path"], source=src["name"])
+            frames.append(df_part)
+
         if frames:
-            self.df = pd.concat(frames, ignore_index=True).sort_values("timestamp")
+            self.df = pd.concat(frames, ignore_index=True)
+            self.df = _normalize_timestamps_naive_utc(self.df)
+            self.df = self.df.sort_values("timestamp")
         else:
             self.df = pd.DataFrame()
 
-        total_files = len(self.access_logs) + len(self.firewall_logs)
+        total_files = (
+            len(self.access_logs)
+            + len(self.firewall_logs)
+            + len(self.auth_logs)
+        )
         print(f"Parsed {self.df.shape[0]} lines from {total_files} log file(s).")
 
         # create features for later use
@@ -251,6 +282,16 @@ class Whiskers:
             elif arg in ("-g", "--generate"):
                 self.gen_new = True
 
+            elif arg in ("-gauth", "--generate-auth"):
+                self.gen_auth_alongside = True
+
+            elif arg in (
+                "-gauthonly",
+                "--generate-auth-only",
+                "-guath",
+            ):
+                self.gen_auth_only = True
+
             elif arg in ("-d", "--detect"):
                 self.run_detection = True
 
@@ -294,7 +335,17 @@ class Whiskers:
                     i += 1
                 except IndexError:
                     print("Invalid or missing path for --firewall-log; ignoring.")
-            
+
+            elif arg in ("-au", "--auth-log"):
+                try:
+                    path = command[i + 1]
+                    self.auth_logs.append(
+                        {"name": "auth", "path": path, "format": "linux_auth"}
+                    )
+                    i += 1
+                except IndexError:
+                    print("Invalid or missing path for --auth-log; ignoring.")
+
             elif arg in ("-as", "--actor-stats"):
                 show_actor_distribution(self.profile_counts, self.log_source_counts)
                 break
@@ -311,13 +362,27 @@ class Whiskers:
             i += 1
 
         # Second pass: execute actions after all arguments are parsed
-        if self.gen_new:
-            results = generate_logs(size=self.size)
+        if self.gen_new or self.gen_auth_only:
+            auth_only = self.gen_auth_only
+            include_auth = self.gen_new and self.gen_auth_alongside and not auth_only
+            results = generate_logs(
+                size=self.size,
+                include_auth=include_auth,
+                auth_only=auth_only,
+            )
             self.profile_counts = results[5]
             self.log_source_counts = results[6]
             self.ips_that_attacked = results[7]
             self.gen_new = False
+            self.gen_auth_only = False
+            self.gen_auth_alongside = False
             self.mode = "normal"
+        elif self.gen_auth_alongside:
+            print(
+                "Note: -gauth only applies with -g (access log). "
+                "Use `-g -gauth` for both files, or `-gauthonly` for auth.log only."
+            )
+            self.gen_auth_alongside = False
         
         if self.run_detection:
             self.prepare_dataframe()
