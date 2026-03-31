@@ -1,6 +1,7 @@
 import os
 import random
 import datetime
+import sys
 
 from simulator.user import User, PROFILES, IPS_NORMAL
 from simulator.auth_log_simulator import generate_auth_normal_burst, generate_auth_normal_event
@@ -236,17 +237,17 @@ def command_injection_attack(ip, current_time, count):
 def generate_logs(
     size=2000,
     users=100,
-    *,
-    include_auth: bool = False,
-    auth_only: bool = False,
+    gen_access: bool = True,
+    gen_auth: bool = False,
+    gen_firewall: bool = False,
     ):
-    """Generate simulated logs.
-
-    * ``include_auth`` — with access generation, also write ``data/auth.log`` with
-      interleaved timestamps (use with ``-g`` and ``-gauth``).
-    * ``auth_only`` — write only ``data/auth.log`` (``-gauthonly`` / ``-guath``);
-      access log is not written.
     """
+    Generate simulated logs.
+    """
+
+    if gen_access == False and gen_auth == False and gen_firewall == False:
+        print("Critical Error: No log types selected to generate. Exiting...")
+        sys.exit(1)
 
     bf_count = 0
     scan_count = 0
@@ -277,31 +278,6 @@ def generate_logs(
     start_time = datetime.datetime.now()
     current_time = start_time
 
-    if auth_only:
-        with open("data/auth.log", "w", encoding="utf-8") as auth_f:
-            for _ in range(size):
-                line, current_time = generate_auth_normal_event(current_time)
-                auth_f.write(line + "\n")
-                current_time += datetime.timedelta(
-                    seconds=random.randint(1, 6),
-                    milliseconds=random.randint(0, 999),
-                )
-        print(f"Wrote data/auth.log ({size} normal auth events, auth-only mode).")
-        report_generation_stats(
-            bf_count, scan_count, flood_count, sqli_count, exfil_count, commandi_count
-        )
-        return (
-            bf_count,
-            scan_count,
-            flood_count,
-            sqli_count,
-            exfil_count,
-            commandi_count,
-            profile_counts,
-            log_source_counts,
-            ips_that_attacked,
-        )
-
     user_list = [User(used_ips) for _ in range(users)]
 
     for user in user_list:
@@ -309,18 +285,24 @@ def generate_logs(
 
     access_path = "data/access.log"
     auth_path = "data/auth.log"
+    firewall_path = "data/firewall.log"
 
-    access_f_ctx = open(access_path, "w", encoding="utf-8")
+    access_f_ctx = None
+    if gen_access :
+        access_f_ctx = open(access_path, "w", encoding="utf-8")
     auth_f_ctx = None
-    if include_auth:
+    if gen_auth:
         auth_f_ctx = open(auth_path, "w", encoding="utf-8")
+    firewall_f_ctx = None
+    if gen_firewall:
+        firewall_f_ctx = open(firewall_path, "w", encoding="utf-8")
 
     try:
         f = access_f_ctx
         auth_f = auth_f_ctx
 
         for i in range(size):
-            if include_auth and auth_f is not None:
+            if gen_auth:
                 n_pre = random.randint(0, 2)
                 auth_lines, current_time = generate_auth_normal_burst(
                     current_time, n_pre, classification="normal", count=0
@@ -328,63 +310,68 @@ def generate_logs(
                 for aline in auth_lines:
                     auth_f.write(aline + "\n")
 
-            user = random.choice(user_list)
-            profile = user.profile
-            attack_risk = PROFILES[profile]["attack"]
-            attack_chance = random.random()
+            
+            if gen_access:
 
-            if attack_chance < attack_risk:
-                if profile == "scanner":
-                    logs, current_time = user.perform_attack(
-                        "directory_scan",
-                        current_time,
-                        {"directory_scan": scan_count},
-                    )
-                    scan_count += 1
+                user = random.choice(user_list)
+                profile = user.profile
+                attack_risk = PROFILES[profile]["attack"]
+                attack_chance = random.random()
+
+                if attack_chance < attack_risk:
+                    if profile == "scanner":
+                        logs, current_time = user.perform_attack(
+                            "directory_scan",
+                            current_time,
+                            {"directory_scan": scan_count},
+                        )
+                        scan_count += 1
+                    else:
+                        attack_type = user.choose_attack_type()
+                        logs, current_time = user.perform_attack(
+                            attack_type,
+                            current_time,
+                            {
+                                "brute_force": bf_count,
+                                "directory_scan": scan_count,
+                                "request_flood": flood_count,
+                                "sql_injection": sqli_count,
+                                "data_exfiltration": exfil_count,
+                                "command_injection": commandi_count,
+                            },
+                        )
+
+                        if attack_type == "brute_force":
+                            bf_count += 1
+                        elif attack_type == "request_flood":
+                            flood_count += 1
+                        elif attack_type == "sql_injection":
+                            sqli_count += 1
+                        elif attack_type == "data_exfiltration":
+                            exfil_count += 1
+                        elif attack_type == "command_injection":
+                            commandi_count += 1
+
+                    if user.ip not in ips_that_attacked:
+                        ips_that_attacked[user.ip] = {
+                            "profile": user.profile,
+                            "attack_counts": user.attack_counts.copy(),
+                            "total_attacks": 0,
+                        }
+
                 else:
-                    attack_type = user.choose_attack_type()
-                    logs, current_time = user.perform_attack(
-                        attack_type,
-                        current_time,
-                        {
-                            "brute_force": bf_count,
-                            "directory_scan": scan_count,
-                            "request_flood": flood_count,
-                            "sql_injection": sqli_count,
-                            "data_exfiltration": exfil_count,
-                            "command_injection": commandi_count,
-                        },
-                    )
+                    logs, current_time = user.perform_normal_traffic(current_time)
 
-                    if attack_type == "brute_force":
-                        bf_count += 1
-                    elif attack_type == "request_flood":
-                        flood_count += 1
-                    elif attack_type == "sql_injection":
-                        sqli_count += 1
-                    elif attack_type == "data_exfiltration":
-                        exfil_count += 1
-                    elif attack_type == "command_injection":
-                        commandi_count += 1
+                log_source_counts[user.profile] += 1
 
-                if user.ip not in ips_that_attacked:
-                    ips_that_attacked[user.ip] = {
-                        "profile": user.profile,
-                        "attack_counts": user.attack_counts.copy(),
-                        "total_attacks": 0,
-                    }
+                for line in logs:
+                    f.write(line + "\n")
 
-            else:
-                logs, current_time = user.perform_normal_traffic(current_time)
-
-            log_source_counts[user.profile] += 1
-
-            for line in logs:
-                f.write(line + "\n")
-
-            if include_auth and auth_f is not None and random.random() < 0.28:
-                line, current_time = generate_auth_normal_event(current_time)
-                auth_f.write(line + "\n")
+                """
+                if gen_auth and random.random() < 0.28:
+                    line, current_time = generate_auth_normal_event(current_time)
+                    auth_f.write(line + "\n")
+                """
 
         for ip, data in ips_that_attacked.items():
             u = next((x for x in user_list if x.ip == ip), None)
@@ -393,15 +380,11 @@ def generate_logs(
                 data["total_attacks"] = sum(u.attack_counts.values())
 
     finally:
-        access_f_ctx.close()
+        if access_f_ctx is not None:
+            access_f_ctx.close()
         if auth_f_ctx is not None:
             auth_f_ctx.close()
 
-    if include_auth:
-        print(
-            "Wrote data/access.log and data/auth.log "
-            "(timelines interleaved; auth lines use trailing classification/count)."
-        )
     report_generation_stats(
         bf_count, scan_count, flood_count, sqli_count, exfil_count, commandi_count
     )

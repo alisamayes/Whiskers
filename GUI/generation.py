@@ -105,8 +105,10 @@ class GenPage(QWidget):
             print("Size must be a positive int to run generation")
         results = generate_logs(
                 size,
-                include_auth = False,
-                auth_only = False,
+                100,
+                self.log_types["Access"]["state"],
+                self.log_types["Auth"]["state"],
+                self.log_types["Firewall"]["state"],
         )
         self.update_stats(results)
 

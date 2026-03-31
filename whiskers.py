@@ -49,8 +49,9 @@ class Whiskers:
         self.mode = "normal"
         self.check = False
         self.gen_new = False
-        self.gen_auth_alongside = False
-        self.gen_auth_only = False
+        self.gen_access = False
+        self.gen_auth = False
+        self.gen_firewall = False
         self.run_detection = False
         self.size = 2000
         # default access log sources
@@ -168,9 +169,9 @@ class Whiskers:
         help_text = """         Startup Usage: python main.py [options]
             Options:
             -h, --help                      Show this help message
-            -g, --generate                  Generate new access log (data/access.log)
-            -gauth, --generate-auth         With -g, also write data/auth.log (interleaved timestamps)
-            -gauthonly, --generate-auth-only  Generate only data/auth.log (normal auth traffic). Alias: -guath
+            -gac, --generate_access         Generate new access log (data/access.log)
+            -gauth, --generate_auth         Generate new auth log (data/auth.log)
+            -gfire, --generate_firewall     Generate new firewall log (data/firewall.log)
             -s, --size [number]             Base number of actions to generate (default 2000, attacks will generate more log lines)
             -d, --detect                    Rerun detection algorithms on current logs
             -v, --verbose                   Enable verbose output for detect. Shows all detected alerts with details instead of just summary counts.
@@ -287,18 +288,13 @@ class Whiskers:
             elif arg in ("-v", "--verbose"):
                 self.mode = "verbose"
             
-            elif arg in ("-g", "--generate"):
+            elif arg in ("-gac", "--generate_access"):
+                self.gen_access = True
                 self.gen_new = True
 
-            elif arg in ("-gauth", "--generate-auth"):
-                self.gen_auth_alongside = True
-
-            elif arg in (
-                "-gauthonly",
-                "--generate-auth-only",
-                "-guath",
-            ):
-                self.gen_auth_only = True
+            elif arg in ("-gauth", "--generate_auth"):
+                self.gen_auth = True
+                self.gen_new = True
 
             elif arg in ("-d", "--detect"):
                 self.run_detection = True
@@ -370,27 +366,22 @@ class Whiskers:
             i += 1
 
         # Second pass: execute actions after all arguments are parsed
-        if self.gen_new or self.gen_auth_only:
-            auth_only = self.gen_auth_only
-            include_auth = self.gen_new and self.gen_auth_alongside and not auth_only
+        if self.gen_new:
             results = generate_logs(
-                size=self.size,
-                include_auth=include_auth,
-                auth_only=auth_only,
+                self.size,
+                100,
+                self.gen_access,
+                self.gen_auth,
+                self.gen_firewall
             )
             self.profile_counts = results[6]
             self.log_source_counts = results[7]
             self.ips_that_attacked = results[8]
             self.gen_new = False
-            self.gen_auth_only = False
-            self.gen_auth_alongside = False
+            self.gen_access = False
+            self.gen_auth = False
+            self.gen_firewall = False
             self.mode = "normal"
-        elif self.gen_auth_alongside:
-            print(
-                "Note: -gauth only applies with -g (access log). "
-                "Use `-g -gauth` for both files, or `-gauthonly` for auth.log only."
-            )
-            self.gen_auth_alongside = False
         
         if self.run_detection:
             self.prepare_dataframe()
