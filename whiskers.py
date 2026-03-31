@@ -38,6 +38,14 @@ def _normalize_timestamps_naive_utc(df: pd.DataFrame) -> pd.DataFrame:
 
 class Whiskers:
     def __init__(self, args):
+        # Avoid Windows console UnicodeEncodeError when printing banner art.
+        # (PowerShell/terminal encoding can be cp1252; we prefer UTF-8 with replacement.)
+        try:
+            if hasattr(sys.stdout, "reconfigure"):
+                sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+
         self.mode = "normal"
         self.check = False
         self.gen_new = False
@@ -370,9 +378,9 @@ class Whiskers:
                 include_auth=include_auth,
                 auth_only=auth_only,
             )
-            self.profile_counts = results[5]
-            self.log_source_counts = results[6]
-            self.ips_that_attacked = results[7]
+            self.profile_counts = results[6]
+            self.log_source_counts = results[7]
+            self.ips_that_attacked = results[8]
             self.gen_new = False
             self.gen_auth_only = False
             self.gen_auth_alongside = False

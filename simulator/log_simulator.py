@@ -239,7 +239,7 @@ def generate_logs(
     *,
     include_auth: bool = False,
     auth_only: bool = False,
-):
+    ):
     """Generate simulated logs.
 
     * ``include_auth`` — with access generation, also write ``data/auth.log`` with

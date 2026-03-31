@@ -11,6 +11,8 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtGui import QPixmap, QFont, QResizeEvent, QShowEvent
 from PyQt6.QtCore import Qt, QObject, pyqtSignal
 
+from GUI.generation import GenPage
+
 _ASSETS = Path(__file__).resolve().parent.parent / "assets"
 
 
@@ -40,7 +42,11 @@ class ApplicationWindow(QMainWindow):
         self.tabs = QTabWidget()
         self.setCentralWidget(self.tabs)
 
-        self.tabs.addTab(HomePage(), "Home")
+        self.home = HomePage()
+        self.gen = GenPage()
+
+        self.tabs.addTab(self.home, "Home")
+        self.tabs.addTab(self.gen, "Generator")
 
     def closeEvent(self, event):
         if self.close_hides_only:
