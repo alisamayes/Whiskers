@@ -9,6 +9,28 @@ from simulator.user import IPS_NORMAL
 
 AUTH_HOSTNAME = "app-server-01"
 
+# Supervised / ground-truth labels (trailer on each line in the episode)
+AUTH_CLASS_SSH_BRUTEFORCE = "auth_ssh_bruteforce"
+AUTH_CLASS_SSH_USER_ENUM = "auth_ssh_user_enum"
+AUTH_CLASS_SUDO_BRUTEFORCE = "auth_sudo_bruteforce"
+
+SSH_BRUTEFORCE_TARGETS = [
+    "root",
+    "admin",
+    "test",
+    "postgres",
+    "oracle",
+    "git",
+    "backup",
+    "ubuntu",
+    "www-data",
+    "deploy",
+    "guest",
+    "user",
+]
+
+SSH_ENUM_RANDOM_PREFIXES = ["svc", "scan", "test", "tmp", "bx", "z", "u", "sql", "ftp", "vpn"]
+
 AUTH_USERS = [
     "alice",
     "bob",
@@ -121,3 +143,138 @@ def generate_auth_normal_burst(
         line, t = generate_auth_normal_event(t, classification=classification, count=count)
         lines.append(line)
     return lines, t
+
+
+def _advance_time(
+    t: datetime.datetime,
+    *,
+    min_ms: int = 200,
+    max_ms: int = 2800,
+) -> datetime.datetime:
+    return t + datetime.timedelta(milliseconds=random.randint(min_ms, max_ms))
+
+
+def _random_enum_username() -> str:
+    p = random.choice(SSH_ENUM_RANDOM_PREFIXES)
+    return f"{p}_{random.randint(100, 99999)}"
+
+
+def auth_ssh_bruteforce_attack(
+    ip: str,
+    current_time: datetime.datetime,
+    count: int,
+) -> tuple[list[str], datetime.datetime]:
+    """SSH password-guessing burst: mixed ``Failed password`` / invalid-user lines from one IP.
+
+    Realistic pattern: many attempts in seconds, same ``sshd`` pid common within a short window.
+    Each line ends with ``{AUTH_CLASS_SSH_BRUTEFORCE} {count}`` for supervised labels.
+    """
+    lines: list[str] = []
+    t = current_time
+    host = AUTH_HOSTNAME
+    port = _random_ssh_port()
+    pid = _random_sshd_pid()
+    suffix = format_auth_ml_suffix(AUTH_CLASS_SSH_BRUTEFORCE, count)
+    attempts = random.randint(18, 36)
+
+    for _ in range(attempts):
+        ts = format_trad_syslog_ts(t)
+        roll = random.random()
+        if roll < 0.38:
+            user = random.choice(SSH_BRUTEFORCE_TARGETS)
+            lines.append(
+                f"{ts} {host} sshd[{pid}]: Failed password for invalid user {user} "
+                f"from {ip} port {port} ssh2{suffix}"
+            )
+        elif roll < 0.78:
+            user = random.choice(SSH_BRUTEFORCE_TARGETS)
+            lines.append(
+                f"{ts} {host} sshd[{pid}]: Failed password for {user} "
+                f"from {ip} port {port} ssh2{suffix}"
+            )
+        else:
+            user = _random_enum_username()
+            lines.append(
+                f"{ts} {host} sshd[{pid}]: Failed password for invalid user {user} "
+                f"from {ip} port {port} ssh2{suffix}"
+            )
+        t = _advance_time(t, min_ms=150, max_ms=2400)
+
+    return lines, t
+
+
+def auth_ssh_user_enum_attack(
+    ip: str,
+    current_time: datetime.datetime,
+    count: int,
+) -> tuple[list[str], datetime.datetime]:
+    """SSH username enumeration: mostly ``Invalid user`` probes from one IP.
+
+    Occasionally interleaved with ``Failed password for invalid user`` (common in scans).
+    """
+    lines: list[str] = []
+    t = current_time
+    host = AUTH_HOSTNAME
+    port = _random_ssh_port()
+    pid = _random_sshd_pid()
+    suffix = format_auth_ml_suffix(AUTH_CLASS_SSH_USER_ENUM, count)
+    attempts = random.randint(22, 55)
+
+    for _ in range(attempts):
+        ts = format_trad_syslog_ts(t)
+        if random.random() < 0.82:
+            user = _random_enum_username()
+            lines.append(
+                f"{ts} {host} sshd[{pid}]: Invalid user {user} from {ip} port {port} ssh2{suffix}"
+            )
+        else:
+            user = _random_enum_username()
+            lines.append(
+                f"{ts} {host} sshd[{pid}]: Failed password for invalid user {user} "
+                f"from {ip} port {port} ssh2{suffix}"
+            )
+        t = _advance_time(t, min_ms=80, max_ms=1800)
+
+    return lines, t
+
+
+def auth_sudo_bruteforce_attack(
+    ip: str,
+    current_time: datetime.datetime,
+    count: int,
+) -> tuple[list[str], datetime.datetime]:
+    """Repeated ``sudo`` PAM auth failures (local session), realistic ``pam_unix(sudo:auth)`` lines.
+
+    ``ip`` is kept for signature parity with other auth attacks; sudo lines are local
+    (``rhost=`` empty) like typical single-host auth.log entries.
+    """
+    _ = ip
+    lines: list[str] = []
+    t = current_time
+    host = AUTH_HOSTNAME
+    suffix = format_auth_ml_suffix(AUTH_CLASS_SUDO_BRUTEFORCE, count)
+    ruser = random.choice(AUTH_USERS)
+    uid = random.randint(1000, 65534)
+    tty_n = random.randint(0, 6)
+    attempts = random.randint(6, 16)
+
+    for _ in range(attempts):
+        ts = format_trad_syslog_ts(t)
+        target = random.choice(["root", "root", "root", "postgres", "www-data"])
+        # Debian/Ubuntu-style pam_unix sudo failure (rhost often empty on console/SSH TTY)
+        lines.append(
+            f"{ts} {host} sudo: pam_unix(sudo:auth): authentication failure; "
+            f"logname={ruser} uid={uid} euid=0 tty=/dev/pts/{tty_n} "
+            f"ruser={ruser} rhost=  user={target}{suffix}"
+        )
+        t = _advance_time(t, min_ms=400, max_ms=4500)
+
+    return lines, t
+
+
+# Registry for callers (e.g. log generator, tests)
+AUTH_ATTACK_FUNCTIONS = {
+    AUTH_CLASS_SSH_BRUTEFORCE: auth_ssh_bruteforce_attack,
+    AUTH_CLASS_SSH_USER_ENUM: auth_ssh_user_enum_attack,
+    AUTH_CLASS_SUDO_BRUTEFORCE: auth_sudo_bruteforce_attack,
+}

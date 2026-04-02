@@ -3,8 +3,15 @@ import random
 import datetime
 import sys
 
-from simulator.user import User, PROFILES, IPS_NORMAL
-from simulator.auth_log_simulator import generate_auth_normal_burst, generate_auth_normal_event
+from simulator.user import User, PROFILES, IPS_NORMAL, IPS_ATTACK
+from simulator.auth_log_simulator import (
+    AUTH_ATTACK_FUNCTIONS,
+    AUTH_CLASS_SSH_BRUTEFORCE,
+    AUTH_CLASS_SSH_USER_ENUM,
+    AUTH_CLASS_SUDO_BRUTEFORCE,
+    generate_auth_normal_burst,
+    generate_auth_normal_event,
+)
 from analysis.stats import report_generation_stats
 
 
@@ -256,6 +263,13 @@ def generate_logs(
     exfil_count = 0
     commandi_count = 0
 
+    auth_attack_counters = {
+        AUTH_CLASS_SSH_BRUTEFORCE: 0,
+        AUTH_CLASS_SSH_USER_ENUM: 0,
+        AUTH_CLASS_SUDO_BRUTEFORCE: 0,
+    }
+    auth_line_count = 0
+
     profile_counts = {
         "normal": 0,
         "scanner": 0,
@@ -303,12 +317,32 @@ def generate_logs(
 
         for i in range(size):
             if gen_auth:
-                n_pre = random.randint(0, 2)
-                auth_lines, current_time = generate_auth_normal_burst(
-                    current_time, n_pre, classification="normal", count=0
-                )
-                for aline in auth_lines:
-                    auth_f.write(aline + "\n")
+                # Occasional realistic auth attacks (attacker IPs); otherwise benign bursts.
+                if random.random() < 0.012:
+                    kind = random.choice(
+                        [
+                            AUTH_CLASS_SSH_BRUTEFORCE,
+                            AUTH_CLASS_SSH_USER_ENUM,
+                            AUTH_CLASS_SUDO_BRUTEFORCE,
+                        ]
+                    )
+                    auth_attack_counters[kind] += 1
+                    atk_ip = random.choice(IPS_ATTACK)
+                    atk_fn = AUTH_ATTACK_FUNCTIONS[kind]
+                    auth_lines, current_time = atk_fn(
+                        atk_ip, current_time, auth_attack_counters[kind]
+                    )
+                    for aline in auth_lines:
+                        auth_f.write(aline + "\n")
+                        auth_line_count += 1
+                else:
+                    n_pre = random.randint(0, 2)
+                    auth_lines, current_time = generate_auth_normal_burst(
+                        current_time, n_pre, classification="normal", count=0
+                    )
+                    for aline in auth_lines:
+                        auth_f.write(aline + "\n")
+                        auth_line_count += 1
 
             
             if gen_access:
@@ -384,6 +418,16 @@ def generate_logs(
             access_f_ctx.close()
         if auth_f_ctx is not None:
             auth_f_ctx.close()
+        if firewall_f_ctx is not None:
+            firewall_f_ctx.close()
+
+    if gen_auth and sum(auth_attack_counters.values()) > 0:
+        print(
+            "Auth attack episodes (by label): "
+            f"ssh_bruteforce={auth_attack_counters[AUTH_CLASS_SSH_BRUTEFORCE]}, "
+            f"ssh_user_enum={auth_attack_counters[AUTH_CLASS_SSH_USER_ENUM]}, "
+            f"sudo_bruteforce={auth_attack_counters[AUTH_CLASS_SUDO_BRUTEFORCE]}"
+        )
 
     report_generation_stats(
         bf_count, scan_count, flood_count, sqli_count, exfil_count, commandi_count
@@ -398,6 +442,8 @@ def generate_logs(
         profile_counts,
         log_source_counts,
         ips_that_attacked,
+        dict(auth_attack_counters),
+        auth_line_count,
     )
 
 

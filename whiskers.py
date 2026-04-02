@@ -15,6 +15,9 @@ from analysis.detectors import (
     SqlInjectionDetector,
     ExfiltrationDetector,
     CommandInjectionDetector,
+    AuthSshBruteforceDetector,
+    AuthSshUserEnumDetector,
+    AuthSudoBruteforceDetector,
     IsolationForestDetector,
     SupervisedIPClassifierDetector,
 )
@@ -72,6 +75,9 @@ class Whiskers:
             SqlInjectionDetector(threshold=2),
             ExfiltrationDetector(threshold=2_000_000),
             CommandInjectionDetector(threshold=2),
+            AuthSshBruteforceDetector(threshold=8, session_gap_seconds=90),
+            AuthSshUserEnumDetector(threshold=12, session_gap_seconds=90),
+            AuthSudoBruteforceDetector(threshold=5, session_gap_seconds=180),
             IsolationForestDetector(),
             SupervisedIPClassifierDetector(),
         ]
@@ -83,7 +89,10 @@ class Whiskers:
             "request_flood": 0,
             "sql_injection": 0,
             "data_exfiltration": 0,
-            "command_injection": 0
+            "command_injection": 0,
+            "auth_ssh_bruteforce": 0,
+            "auth_ssh_user_enum": 0,
+            "auth_sudo_bruteforce": 0,
         }
 
         self.detected_attack_counts = {
@@ -92,7 +101,10 @@ class Whiskers:
             "request_flood": 0,
             "sql_injection": 0,
             "data_exfiltration": 0,
-            "command_injection": 0
+            "command_injection": 0,
+            "auth_ssh_bruteforce": 0,
+            "auth_ssh_user_enum": 0,
+            "auth_sudo_bruteforce": 0,
         }
 
         # Stats from log generation
@@ -109,6 +121,8 @@ class Whiskers:
             "attacker": 0,
             "compromised": 0
         }
+        self.auth_attack_counters = {}
+        self.auth_line_count = 0
 
         mouse_art_1 = ['''
             ⠀⠀⠀⡎⠑⡄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
@@ -377,6 +391,8 @@ class Whiskers:
             self.profile_counts = results[6]
             self.log_source_counts = results[7]
             self.ips_that_attacked = results[8]
+            self.auth_attack_counters = results[9]
+            self.auth_line_count = results[10]
             self.gen_new = False
             self.gen_access = False
             self.gen_auth = False

@@ -12,6 +12,11 @@ from PyQt6.QtWidgets import (
     QLineEdit
 )
 from simulator.log_simulator import generate_logs
+from simulator.auth_log_simulator import (
+    AUTH_CLASS_SSH_BRUTEFORCE,
+    AUTH_CLASS_SSH_USER_ENUM,
+    AUTH_CLASS_SUDO_BRUTEFORCE,
+)
 from GUI.config import active_dark_green
 
 
@@ -70,7 +75,7 @@ class GenPage(QWidget):
 
         self.stats_box = QVBoxLayout()
         #--------------------------------------------
-        self.true_attack_label = QLabel("Attack data from latest run:")
+        self.true_attack_label = QLabel("Latest run — generation summary:")
         self.true_attack_stats = QLabel(": : : :")
         self.actor_labels = QLabel("Actor Statistics:")
         self.actor_stats = QLabel(": : : :")
@@ -101,35 +106,121 @@ class GenPage(QWidget):
     def generate(self):
         try:
             size = int(self.size_input.text())
-        except:
+        except ValueError:
             print("Size must be a positive int to run generation")
+            return
+        gen_access = self.log_types["Access"]["state"]
+        gen_auth = self.log_types["Auth"]["state"]
+        gen_firewall = self.log_types["Firewall"]["state"]
         results = generate_logs(
-                size,
-                100,
-                self.log_types["Access"]["state"],
-                self.log_types["Auth"]["state"],
-                self.log_types["Firewall"]["state"],
+            size,
+            100,
+            gen_access,
+            gen_auth,
+            gen_firewall,
         )
-        self.update_stats(results)
+        self.update_stats(
+            results,
+            gen_access=gen_access,
+            gen_auth=gen_auth,
+            gen_firewall=gen_firewall,
+        )
 
-    def update_stats(self, results):
+    def update_stats(
+        self,
+        results,
+        *,
+        gen_access: bool = True,
+        gen_auth: bool = False,
+        gen_firewall: bool = False,
+    ):
+        stats_message = ""
 
-        stats_message = "Attack Types:"
-        stats_message += "\nBruteforce attacks: " + str(results[0])
-        stats_message += "\nDirectory Scan attacks: " + str(results[1])
-        stats_message += "\nRequest Flood attacks: " + str(results[2])
-        stats_message += "\nSQL Injection attacks: " + str(results[3])
-        stats_message += "\nExfilation attacks: " + str(results[4])
-        stats_message += "\nCommand Injection attacks: " + str(results[5])
+        if gen_access:
+            stats_message += "Access log — attack episodes:"
+            stats_message += "\nBrute-force: " + str(results[0])
+            stats_message += "\nDirectory scan: " + str(results[1])
+            stats_message += "\nRequest flood: " + str(results[2])
+            stats_message += "\nSQL injection: " + str(results[3])
+            stats_message += "\nData exfiltration: " + str(results[4])
+            stats_message += "\nCommand injection: " + str(results[5])
+        else:
+            stats_message += "Access log: not generated."
+
+        if gen_auth:
+            auth_counts = results[9]
+            auth_lines = results[10]
+            total_episodes = (
+                auth_counts.get(AUTH_CLASS_SSH_BRUTEFORCE, 0)
+                + auth_counts.get(AUTH_CLASS_SSH_USER_ENUM, 0)
+                + auth_counts.get(AUTH_CLASS_SUDO_BRUTEFORCE, 0)
+            )
+            stats_message += "\n\nAuth log:"
+            stats_message += "\nTotal lines written: " + str(auth_lines)
+            stats_message += "\nAttack episodes (distinct count IDs): " + str(total_episodes)
+            stats_message += (
+                "\n  SSH brute-force: "
+                + str(auth_counts.get(AUTH_CLASS_SSH_BRUTEFORCE, 0))
+            )
+            stats_message += (
+                "\n  SSH user enumeration: "
+                + str(auth_counts.get(AUTH_CLASS_SSH_USER_ENUM, 0))
+            )
+            stats_message += (
+                "\n  Sudo auth failures: "
+                + str(auth_counts.get(AUTH_CLASS_SUDO_BRUTEFORCE, 0))
+            )
+        else:
+            stats_message += "\n\nAuth log: not generated."
+
+        if gen_firewall:
+            stats_message += "\n\nFirewall log: generated (data/firewall.log)."
+        else:
+            stats_message += "\n\nFirewall log: not generated."
+
         self.true_attack_stats.setText(stats_message)
 
         profile_counts = results[6]
         log_source_counts = results[7]
-        profile_message = "User Distribution and Log Line Soure Distribution:"
-        profile_message += "\nNormal users: " + str(profile_counts["normal"]) + " users accounted for " + str(log_source_counts["normal"]) + " log lines"
-        profile_message += "\nScanner: " + str(profile_counts["scanner"]) + " users accounted for " + str(log_source_counts["scanner"]) + " log lines"
-        profile_message += "\nAttacker: " + str(profile_counts["attacker"]) + " users accounted for " + str(log_source_counts["attacker"]) + " log lines"
-        profile_message += "\nComprimised: " + str(profile_counts["compromised"]) + " users accounted for " + str(log_source_counts["compromised"]) + " log lines\n"
+        profile_message = "User distribution and access log line counts:"
+        if gen_access:
+            profile_message += (
+                "\nNormal users: "
+                + str(profile_counts["normal"])
+                + " users, "
+                + str(log_source_counts["normal"])
+                + " access lines"
+            )
+            profile_message += (
+                "\nScanner: "
+                + str(profile_counts["scanner"])
+                + " users, "
+                + str(log_source_counts["scanner"])
+                + " access lines"
+            )
+            profile_message += (
+                "\nAttacker: "
+                + str(profile_counts["attacker"])
+                + " users, "
+                + str(log_source_counts["attacker"])
+                + " access lines"
+            )
+            profile_message += (
+                "\nCompromised: "
+                + str(profile_counts["compromised"])
+                + " users, "
+                + str(log_source_counts["compromised"])
+                + " access lines\n"
+            )
+        else:
+            profile_message += (
+                "\n(No access log — actor stats reflect user pool only.)\n"
+            )
+            profile_message += "\nNormal: " + str(profile_counts["normal"]) + " users"
+            profile_message += "\nScanner: " + str(profile_counts["scanner"]) + " users"
+            profile_message += "\nAttacker: " + str(profile_counts["attacker"]) + " users"
+            profile_message += "\nCompromised: " + str(profile_counts["compromised"]) + " users\n"
+
         self.actor_stats.setText(profile_message)
 
     def toggle_button(self, button: QPushButton):
