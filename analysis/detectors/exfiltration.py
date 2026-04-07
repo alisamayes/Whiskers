@@ -10,7 +10,7 @@ from .base import BaseDetector, ThreatAlert
 class ExfiltrationDetector(BaseDetector):
     """Detects unusually large outbound data transfers per IP."""
 
-    kind = "data_exfiltration"
+    kind = "access_data_exfiltration"
     description = "Detects large volumes of bytes sent per IP over short windows"
 
     def __init__(self, threshold: int = 5_000_000, session_gap_seconds: int = 300):

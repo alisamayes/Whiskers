@@ -10,7 +10,7 @@ from .base import BaseDetector, ThreatAlert
 class ScanDetector(BaseDetector):
     """Detects directory/path scanning attempts."""
 
-    kind = "directory_scan"
+    kind = "access_directory_scan"
     description = "Detects probing for multiple paths (404 errors on different endpoints)"
 
     def __init__(self, threshold: int = 4, session_gap_seconds: int = 10):

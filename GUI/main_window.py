@@ -12,6 +12,7 @@ from PyQt6.QtGui import QPixmap, QFont, QResizeEvent, QShowEvent
 from PyQt6.QtCore import Qt, QObject, pyqtSignal
 
 from GUI.generation import GenPage
+from GUI.detection import DetectionPage
 
 _ASSETS = Path(__file__).resolve().parent.parent / "assets"
 
@@ -33,8 +34,9 @@ def _load_logo_pixmap() -> QPixmap:
 
 
 class ApplicationWindow(QMainWindow):
-    def __init__(self):
+    def __init__(self, whiskers_agent):
         super().__init__()
+        self.whiskers = whiskers_agent
         self.setWindowTitle("Whiskers")
         self.setGeometry(200, 200, 600, 400)
         self.close_hides_only = False
@@ -44,9 +46,11 @@ class ApplicationWindow(QMainWindow):
 
         self.home = HomePage()
         self.gen = GenPage()
+        self.detect = DetectionPage(self.whiskers)
 
         self.tabs.addTab(self.home, "Home")
         self.tabs.addTab(self.gen, "Generator")
+        self.tabs.addTab(self.detect, "Detector")
 
     def closeEvent(self, event):
         if self.close_hides_only:

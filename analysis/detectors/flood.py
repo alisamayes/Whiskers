@@ -10,7 +10,7 @@ from .base import BaseDetector, ThreatAlert
 class FloodDetector(BaseDetector):
     """Detects request flood (DoS) attacks."""
 
-    kind = "request_flood"
+    kind = "access_request_flood"
     description = "Detects unusual request spike patterns (high request rate)"
 
     def __init__(self, threshold: int = 100, session_gap_seconds: int = 5):

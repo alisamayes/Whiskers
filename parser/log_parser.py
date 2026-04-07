@@ -7,7 +7,7 @@ import pandas as pd
 
 # Access log pattern
 # Example line:
-# 103.78.90.123 - - [23/Mar/2026:10:45:09 +0000] "POST /login HTTP/1.1" 401 659 "-" "curl/7.68" brute_force 0 
+# 103.78.90.123 - - [23/Mar/2026:10:45:09 +0000] "POST /login HTTP/1.1" 401 659 "-" "curl/7.68" access_brute_force 0
 # Note: the last two fields are for ML classifaction only and rule based detection ignores it.
 
 ACCESS_PATTERN = (

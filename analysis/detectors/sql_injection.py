@@ -30,7 +30,7 @@ SQLI_PATTERNS = [
 class SqlInjectionDetector(BaseDetector):
     """Detects likely SQL injection attempts based on request paths/query strings."""
 
-    kind = "sql_injection"
+    kind = "access_sql_injection"
     description = "Detects SQLi-style payloads in request paths or query strings"
 
     def __init__(self, threshold: int = 3, session_gap_seconds: int = 60):

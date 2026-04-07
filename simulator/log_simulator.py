@@ -133,7 +133,7 @@ def brute_force_attack(ip, current_time, count):
         # failed login responses are usually small-ish
         bytes_sent = random.randint(300, 1500)
         logs.append(
-            f'{ip} - - [{time}] "POST /login HTTP/1.1" 401 {bytes_sent} "-" "curl/7.68" brute_force {count}'
+            f'{ip} - - [{time}] "POST /login HTTP/1.1" 401 {bytes_sent} "-" "curl/7.68" access_brute_force {count}'
         )
 
         current_time += datetime.timedelta(seconds=1)
@@ -151,7 +151,7 @@ def directory_scan(ip, current_time, count):
 
         bytes_sent = random.randint(300, 2000)
         logs.append(
-            f'{ip} - - [{time}] "GET {path} HTTP/1.1" 404 {bytes_sent} "-" "curl/7.68" directory_scan {count}'
+            f'{ip} - - [{time}] "GET {path} HTTP/1.1" 404 {bytes_sent} "-" "curl/7.68" access_directory_scan {count}'
         )
         
         current_time += datetime.timedelta(seconds=1)
@@ -169,7 +169,7 @@ def request_flood(ip, current_time, count):
         # lots of requests, size may vary moderately
         bytes_sent = random.randint(300, 4000)
         logs.append(
-            f'{ip} - - [{time}] "GET {path} HTTP/1.1" 200 {bytes_sent} "-" "curl/7.68" request_flood {count}'
+            f'{ip} - - [{time}] "GET {path} HTTP/1.1" 200 {bytes_sent} "-" "curl/7.68" access_request_flood {count}'
         )
 
         current_time += datetime.timedelta(milliseconds=200)
@@ -189,7 +189,7 @@ def sql_injection_attack(ip, current_time, count):
         bytes_sent = random.randint(500, 5000)
 
         logs.append(
-            f'{ip} - - [{time}] "GET {path} HTTP/1.1" {status} {bytes_sent} "-" "curl/7.68" sql_injection {count}'
+            f'{ip} - - [{time}] "GET {path} HTTP/1.1" {status} {bytes_sent} "-" "curl/7.68" access_sql_injection {count}'
         )
 
         current_time += datetime.timedelta(seconds=3)
@@ -209,7 +209,7 @@ def exfiltration_attack(ip, current_time, count):
         bytes_sent = random.randint(50_000_000, 200_000_000)  # 50–200 MB
 
         logs.append(
-            f'{ip} - - [{time}] "GET {path} HTTP/1.1" {status} {bytes_sent} "-" "curl/7.68" data_exfiltration {count}'
+            f'{ip} - - [{time}] "GET {path} HTTP/1.1" {status} {bytes_sent} "-" "curl/7.68" access_data_exfiltration {count}'
         )
 
         current_time += datetime.timedelta(seconds=5)
@@ -234,7 +234,7 @@ def command_injection_attack(ip, current_time, count):
         temp.remove(command_choice)  # Ensure we don't reuse the same pattern in this attack session
 
         logs.append(
-            f'{ip} - - [{time}] "GET {command_choice} HTTP/1.1" {status} {bytes_sent} "-" "{agent}" command_injection {count}'
+            f'{ip} - - [{time}] "GET {command_choice} HTTP/1.1" {status} {bytes_sent} "-" "{agent}" access_command_injection {count}'
         )
 
         current_time += datetime.timedelta(seconds = 2)
@@ -256,18 +256,18 @@ def generate_logs(
         print("Critical Error: No log types selected to generate. Exiting...")
         sys.exit(1)
 
-    bf_count = 0
-    scan_count = 0
-    flood_count = 0
-    sqli_count = 0
-    exfil_count = 0
-    commandi_count = 0
-
-    auth_attack_counters = {
-        AUTH_CLASS_SSH_BRUTEFORCE: 0,
-        AUTH_CLASS_SSH_USER_ENUM: 0,
-        AUTH_CLASS_SUDO_BRUTEFORCE: 0,
+    attack_counters = {
+        "access_brute_force": 0,
+        "access_directory_scan": 0,
+        "access_request_flood": 0,
+        "access_sql_injection": 0,
+        "access_data_exfiltration": 0,
+        "access_command_injection": 0,
+        "auth_ssh_bruteforce": 0,
+        "auth_ssh_user_enum": 0,
+        "auth_sudo_bruteforce": 0,
     }
+
     auth_line_count = 0
 
     profile_counts = {
@@ -326,11 +326,11 @@ def generate_logs(
                             AUTH_CLASS_SUDO_BRUTEFORCE,
                         ]
                     )
-                    auth_attack_counters[kind] += 1
+                    attack_counters[kind] += 1
                     atk_ip = random.choice(IPS_ATTACK)
                     atk_fn = AUTH_ATTACK_FUNCTIONS[kind]
                     auth_lines, current_time = atk_fn(
-                        atk_ip, current_time, auth_attack_counters[kind]
+                        atk_ip, current_time, attack_counters[kind]
                     )
                     for aline in auth_lines:
                         auth_f.write(aline + "\n")
@@ -355,36 +355,17 @@ def generate_logs(
                 if attack_chance < attack_risk:
                     if profile == "scanner":
                         logs, current_time = user.perform_attack(
-                            "directory_scan",
+                            "access_directory_scan",
                             current_time,
-                            {"directory_scan": scan_count},
+                            attack_counters,
                         )
-                        scan_count += 1
                     else:
                         attack_type = user.choose_attack_type()
                         logs, current_time = user.perform_attack(
                             attack_type,
                             current_time,
-                            {
-                                "brute_force": bf_count,
-                                "directory_scan": scan_count,
-                                "request_flood": flood_count,
-                                "sql_injection": sqli_count,
-                                "data_exfiltration": exfil_count,
-                                "command_injection": commandi_count,
-                            },
+                            attack_counters,
                         )
-
-                        if attack_type == "brute_force":
-                            bf_count += 1
-                        elif attack_type == "request_flood":
-                            flood_count += 1
-                        elif attack_type == "sql_injection":
-                            sqli_count += 1
-                        elif attack_type == "data_exfiltration":
-                            exfil_count += 1
-                        elif attack_type == "command_injection":
-                            commandi_count += 1
 
                     if user.ip not in ips_that_attacked:
                         ips_that_attacked[user.ip] = {
@@ -421,28 +402,23 @@ def generate_logs(
         if firewall_f_ctx is not None:
             firewall_f_ctx.close()
 
-    if gen_auth and sum(auth_attack_counters.values()) > 0:
-        print(
-            "Auth attack episodes (by label): "
-            f"ssh_bruteforce={auth_attack_counters[AUTH_CLASS_SSH_BRUTEFORCE]}, "
-            f"ssh_user_enum={auth_attack_counters[AUTH_CLASS_SSH_USER_ENUM]}, "
-            f"sudo_bruteforce={auth_attack_counters[AUTH_CLASS_SUDO_BRUTEFORCE]}"
-        )
 
-    report_generation_stats(
-        bf_count, scan_count, flood_count, sqli_count, exfil_count, commandi_count
-    )
+    report_generation_stats(attack_counters)
     return (
-        bf_count,
-        scan_count,
-        flood_count,
-        sqli_count,
-        exfil_count,
-        commandi_count,
+        attack_counters["access_brute_force"],
+        attack_counters["access_directory_scan"],
+        attack_counters["access_request_flood"],
+        attack_counters["access_sql_injection"],
+        attack_counters["access_data_exfiltration"],
+        attack_counters["access_command_injection"],
         profile_counts,
         log_source_counts,
         ips_that_attacked,
-        dict(auth_attack_counters),
+        {
+            "auth_ssh_bruteforce": attack_counters["auth_ssh_bruteforce"],
+            "auth_ssh_user_enum": attack_counters["auth_ssh_user_enum"],
+            "auth_sudo_bruteforce": attack_counters["auth_sudo_bruteforce"],
+        },
         auth_line_count,
     )
 

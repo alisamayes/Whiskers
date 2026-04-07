@@ -22,12 +22,12 @@ class User:
 
         # Track attack counts for this user
         self.attack_counts = {
-            "brute_force": 0,
-            "directory_scan": 0,
-            "request_flood": 0,
-            "sql_injection": 0,
-            "data_exfiltration": 0,
-            "command_injection": 0
+            "access_brute_force": 0,
+            "access_directory_scan": 0,
+            "access_request_flood": 0,
+            "access_sql_injection": 0,
+            "access_data_exfiltration": 0,
+            "access_command_injection": 0,
         }
 
 
@@ -40,16 +40,16 @@ class User:
         """Choose which attack to perform based on profile capabilities."""
         if self.profile == "scanner":
             # Scanners only do directory scans
-            return "directory_scan"
+            return "access_directory_scan"
         elif self.profile in ["attacker", "compromised", "normal"]:
             # Attackers and compromised users can do any attack
             attack_weights = {
-                "brute_force": 0.2,
-                "directory_scan": 0.1,
-                "request_flood": 0.2,
-                "sql_injection": 0.2,
-                "data_exfiltration": 0.1,
-                "command_injection": 0.2
+                "access_brute_force": 0.2,
+                "access_directory_scan": 0.1,
+                "access_request_flood": 0.2,
+                "access_sql_injection": 0.2,
+                "access_data_exfiltration": 0.1,
+                "access_command_injection": 0.2,
             }
             attacks = list(attack_weights.keys())
             weights = list(attack_weights.values())
@@ -66,17 +66,19 @@ class User:
         )
 
         attack_functions = {
-            "brute_force": brute_force_attack,
-            "directory_scan": directory_scan,
-            "request_flood": request_flood,
-            "sql_injection": sql_injection_attack,
-            "data_exfiltration": exfiltration_attack,
-            "command_injection": command_injection_attack
+            "access_brute_force": brute_force_attack,
+            "access_directory_scan": directory_scan,
+            "access_request_flood": request_flood,
+            "access_sql_injection": sql_injection_attack,
+            "access_data_exfiltration": exfiltration_attack,
+            "access_command_injection": command_injection_attack,
         }
 
         if attack_type in attack_functions:
              # Get the attack logs and updated time
-            logs, new_time = attack_functions[attack_type](self.ip, current_time, global_counters[attack_type])
+            logs, new_time = attack_functions[attack_type](
+                self.ip, current_time, global_counters[attack_type]
+            )
 
             # Update counters
             self.attack_counts[attack_type] += 1

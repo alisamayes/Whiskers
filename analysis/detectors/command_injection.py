@@ -45,7 +45,7 @@ COMMAND_INJECTION_PATTERNS = [
 class CommandInjectionDetector(BaseDetector):
     """Detects likely command injection attempts based on request paths/query strings."""
 
-    kind = "command_injection"
+    kind = "access_command_injection"
     description = "Detects command injection-style payloads in request paths or query strings"
 
     def __init__(self, threshold: int = 3, session_gap_seconds: int = 60):
