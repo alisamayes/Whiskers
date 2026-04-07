@@ -84,24 +84,24 @@ class Whiskers:
 
         # Initialize list for true number of attack types. Will be filled when generating logs
         self.true_attack_counts = {
-            "brute_force": 0,
-            "directory_scan": 0,
-            "request_flood": 0,
-            "sql_injection": 0,
-            "data_exfiltration": 0,
-            "command_injection": 0,
+            "access_brute_force": 0,
+            "access_directory_scan": 0,
+            "access_request_flood": 0,
+            "access_sql_injection": 0,
+            "access_data_exfiltration": 0,
+            "access_command_injection": 0,
             "auth_ssh_bruteforce": 0,
             "auth_ssh_user_enum": 0,
             "auth_sudo_bruteforce": 0,
         }
 
         self.detected_attack_counts = {
-            "brute_force": 0,
-            "directory_scan": 0,
-            "request_flood": 0,
-            "sql_injection": 0,
-            "data_exfiltration": 0,
-            "command_injection": 0,
+            "access_brute_force": 0,
+            "access_directory_scan": 0,
+            "access_request_flood": 0,
+            "access_sql_injection": 0,
+            "access_data_exfiltration": 0,
+            "access_command_injection": 0,
             "auth_ssh_bruteforce": 0,
             "auth_ssh_user_enum": 0,
             "auth_sudo_bruteforce": 0,
@@ -232,6 +232,7 @@ class Whiskers:
             + len(self.firewall_logs)
             + len(self.auth_logs)
         )
+        print("\n=============== Parsing Logs ===============\n")
         print(f"Parsed {self.df.shape[0]} lines from {total_files} log file(s).")
 
         # create features for later use
@@ -248,11 +249,19 @@ class Whiskers:
             self.detected_attack_counts[kind] = 0
 
         self.all_alerts = []
+        ml_summary = None
         for detector in self.detectors:
             alerts = detector.detect(self.df)
             self.all_alerts.extend(alerts)
+            if getattr(detector, "kind", None) == "ml_anomaly":
+                ml_summary = getattr(detector, "last_run_summary", None)
 
-        report_detection_stats(self.all_alerts, self.detected_attack_counts, self.mode)
+        report_detection_stats(
+            self.all_alerts,
+            self.detected_attack_counts,
+            self.mode,
+            ml_summary=ml_summary,
+        )
 
 
     def update_true_attack_counts_from_df(self):
@@ -443,7 +452,7 @@ class Whiskers:
             return
 
         self._qapp.setQuitOnLastWindowClosed(False)
-        self._gui_window = ApplicationWindow()
+        self._gui_window = ApplicationWindow(self)
         self._gui_window.close_hides_only = True
         self._gui_window.whiskers = self
 

@@ -10,7 +10,7 @@ from .base import BaseDetector, ThreatAlert
 class BruteForceDetector(BaseDetector):
     """Detects brute force attacks on login endpoints."""
 
-    kind = "brute_force"
+    kind = "access_brute_force"
     description = "Detects repeated failed login attempts (401 on /login)"
 
     def __init__(self, threshold: int = 5, session_gap_seconds: int = 60):

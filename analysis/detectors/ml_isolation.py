@@ -108,14 +108,17 @@ class IsolationForestDetector(BaseDetector):
         self.severe_behavioral_risk = severe_behavioral_risk
         self.min_ips_for_forest = min_ips_for_forest
         self.forest_contamination = forest_contamination
+        self.last_run_summary = None
 
     def detect(self, df: pd.DataFrame) -> List[ThreatAlert]:
         alerts: List[ThreatAlert] = []
         if df.empty:
+            self.last_run_summary = None
             return alerts
 
         features = basic_aggregate_features(df)
         if features.empty:
+            self.last_run_summary = None
             return alerts
 
         features = _behavior_enriched_features(df, features)
@@ -175,16 +178,11 @@ class IsolationForestDetector(BaseDetector):
                 )
             )
 
-        print("\n--- Behaviour anomaly detector ---")
-        print(f"Unique IPs in this log: {n}")
-        if use_forest:
-            print(f"Outlier sensitivity: {self.mad_multiplier:g}× ")
-        else:
-            print(f" Only {n} IPs here — not enough for the full model. Only IPs with very extreme attack-like behaviour were considered.")
-        print(
-            f"Flagged as possible hostile IPs: {len(alerts)} "
-            f"(out of {n} unique addresses)"
-        )
-        print("--------------------------------------------------------\n")
+        self.last_run_summary = {
+            "unique_ips": int(n),
+            "use_forest": bool(use_forest),
+            "mad_multiplier": float(self.mad_multiplier),
+            "flagged_ips": int(len(alerts)),
+        }
 
         return alerts

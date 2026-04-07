@@ -7,21 +7,25 @@ def show_actor_distribution(agent_counts, log_source_counts):
     print(log_source_counts)
 
 
-def report_generation_stats(bf, sc, fl, sqli, exfil, commandi):
-    print(
-        "The current log was generated with: "
-        f"{bf} brute force attacks, "
-        f"{sc} directory scans attacks, "
-        f"{fl} request floods attacks, "
-        f"{sqli} SQL injection attacks "
-        f"{exfil} data exfiltration attack attempts, and "
-        f"{commandi} command injection attack attempts."
-    )
+def report_generation_stats(true_attack_counts):
+    """
+    Report the true/generated attack counts for the current log.
 
-def report_detection_stats(all_alerts, detected_attack_counts, mode):
+    """
+    print("\n=============== Running Generation ===============\n")
 
+    if not true_attack_counts:
+        print("No generated attack counts were provided.")
+        return
+
+    for kind, count in true_attack_counts.items():
+        print(f"{kind.replace('_', ' ').title()} attempts generated: {count}")
+
+def report_detection_stats(all_alerts, detected_attack_counts, mode, *, ml_summary=None):
+
+    print("\n=============== Running Detection ===============\n")
     if mode == "verbose":
-            print("\n--- threat detections ---")
+            print("--- threat detections ---")
             by_kind = {}
             for alert in all_alerts:
                 by_kind.setdefault(alert.kind, []).append(alert)
@@ -43,6 +47,30 @@ def report_detection_stats(all_alerts, detected_attack_counts, mode):
             else:
                 print(f"{kind.replace('_', ' ').title()} attempts detected: {count}")
             detected_attack_counts[kind] = count
+
+    if ml_summary:
+        try:
+            n = ml_summary.get("unique_ips")
+            use_forest = ml_summary.get("use_forest")
+            mad = ml_summary.get("mad_multiplier")
+            flagged = ml_summary.get("flagged_ips")
+        except Exception:
+            n = use_forest = mad = flagged = None
+
+        if n is not None and flagged is not None:
+            print("\n-------------- Machine Learning Behaviour Anomaly Detector --------------")
+            print(f"Unique IPs in this log: {n}")
+            if use_forest:
+                print(f"Outlier sensitivity: {mad:g}× ")
+            else:
+                print(
+                    f" Only {n} IPs here — not enough for the full model. "
+                    "Only IPs with very extreme attack-like behaviour were considered."
+                )
+            print(
+                f"Flagged as possible hostile IPs: {flagged} "
+                f"(out of {n} unique addresses)"
+            )
 
 
 def check_detection_stats(true_counts, detected_counts, ips_that_attacked):

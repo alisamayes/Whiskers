@@ -114,11 +114,11 @@ def label_ips(df: pd.DataFrame) -> dict[str, str]:
             if len(mode) > 0 and mode.iloc[0] != "normal":
                 labels[ip] = mode.iloc[0]
                 continue
-        # fallback heuristic: >50% errors -> brute force
+        # fallback heuristic: >50% errors -> brute force (access log class key)
         total = len(group)
         errors = (group["status"] >= 400).sum()
         if total > 0 and errors / total > 0.5:
-            labels[ip] = "brute_force"
+            labels[ip] = "access_brute_force"
         else:
             labels[ip] = "normal"
 

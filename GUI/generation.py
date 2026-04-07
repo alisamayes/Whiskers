@@ -137,7 +137,7 @@ class GenPage(QWidget):
         stats_message = ""
 
         if gen_access:
-            stats_message += "Access log — attack episodes:"
+            stats_message += "--------------- ACCESS LOG ---------------"
             stats_message += "\nBrute-force: " + str(results[0])
             stats_message += "\nDirectory scan: " + str(results[1])
             stats_message += "\nRequest flood: " + str(results[2])
@@ -155,19 +155,17 @@ class GenPage(QWidget):
                 + auth_counts.get(AUTH_CLASS_SSH_USER_ENUM, 0)
                 + auth_counts.get(AUTH_CLASS_SUDO_BRUTEFORCE, 0)
             )
-            stats_message += "\n\nAuth log:"
-            stats_message += "\nTotal lines written: " + str(auth_lines)
-            stats_message += "\nAttack episodes (distinct count IDs): " + str(total_episodes)
+            stats_message += "\n\n--------------- AUTH LOG ---------------"
             stats_message += (
-                "\n  SSH brute-force: "
+                "\nSSH brute-force: "
                 + str(auth_counts.get(AUTH_CLASS_SSH_BRUTEFORCE, 0))
             )
             stats_message += (
-                "\n  SSH user enumeration: "
+                "\nSSH user enumeration: "
                 + str(auth_counts.get(AUTH_CLASS_SSH_USER_ENUM, 0))
             )
             stats_message += (
-                "\n  Sudo auth failures: "
+                "\nSudo auth failures: "
                 + str(auth_counts.get(AUTH_CLASS_SUDO_BRUTEFORCE, 0))
             )
         else:
