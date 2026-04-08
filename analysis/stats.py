@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 
 def show_actor_distribution(agent_counts, log_source_counts):
     """Show the distribution of actors variants in the given run."""
@@ -73,32 +75,101 @@ def report_detection_stats(all_alerts, detected_attack_counts, mode, *, ml_summa
             )
 
 
-def check_detection_stats(true_counts, detected_counts, ips_that_attacked):
-    print("\nChecking model accuracy results. Comparing detected attack count against true attack count...")
-    
+def build_check_report(
+    true_counts: dict,
+    detected_counts: dict,
+    ips_that_attacked: dict,
+    *,
+    profile_counts: dict | None = None,
+    log_source_counts: dict | None = None,
+) -> str:
+    """Accuracy vs labels, user distribution, and log-line source stats (no detection rerun).
+
+    Intended after a prior detection run: compares ``detected_counts`` to ``true_counts``
+    refreshed from the same parsed dataframe.
+    """
+    lines: list[str] = [
+        "Check (-c): accuracy vs log labels (uses last detection results; does not re-run detectors).",
+        "",
+    ]
 
     if len(detected_counts) != len(true_counts):
-        print("Warning: Detected counts length does not match true counts length.")
+        lines.append("Warning: detected vs true dictionaries differ in length.")
+        lines.append("")
+
+    lines.append("--------------- ACCURACY (per attack type) ---------------")
 
     for attack_type in true_counts:
         detected, true = detected_counts.get(attack_type, 0), true_counts[attack_type]
+        label = attack_type.replace("_", " ").title()
         if detected > true:
             accuracy = (true / detected) * 100 if detected > 0 else 0
-            print(f"{attack_type.replace('_', ' ').title()} accuracy: {accuracy:.2f}% . Over-detected {detected} attempts, but only {true} were generated.")
-
+            lines.append(
+                f"{label} accuracy: {accuracy:.2f}%. Over-detected {detected} attempts, but only {true} were generated."
+            )
         elif detected < true:
             accuracy = (detected / true) * 100 if true > 0 else 0
-            print(f"{attack_type.replace('_', ' ').title()} accuracy: {accuracy:.2f}% . Under-detected {detected} attempts out of {true} generated attacks.")
-
+            lines.append(
+                f"{label} accuracy: {accuracy:.2f}%. Under-detected {detected} attempts out of {true} generated attacks."
+            )
         else:
-            print(f"{attack_type.replace('_', ' ').title()} accuracy: 100%. Detected all {true} generated attempts.")
-    
-    # check ML anomaly detection separately since it doesn't have a true count in the same way
+            lines.append(f"{label} accuracy: 100%. Detected all {true} generated attempts.")
+
     if "ml_anomaly" in detected_counts:
         hostile_count = 0
-        # total amount of unique IPs that attacked and are not normal ips
-        for ip in ips_that_attacked:
-            if ips_that_attacked[ip] != "normal":
+        for _ip, data in ips_that_attacked.items():
+            if isinstance(data, dict) and data.get("profile") != "normal":
                 hostile_count += 1
+        lines.append("")
+        lines.append(
+            f"ML Isolation Forest detected {detected_counts['ml_anomaly']} anomalous/ hostile IPs "
+            f"out of {hostile_count} total unique attacking IPs (non-normal profiles in generation metadata)."
+        )
 
-        print(f"ML Isolation Forest detected {detected_counts['ml_anomaly']} anomalous/ hostile IPs out of {hostile_count} total unique attacking IPs.")
+    lines.append("")
+    lines.append("--------------- USER DISTRIBUTION (generation / actor pool) ---------------")
+    if profile_counts:
+        for role, n in profile_counts.items():
+            lines.append(f"- {role}: {n} users")
+    else:
+        lines.append("(not available)")
+
+    lines.append("")
+    lines.append("--------------- LOG LINE SOURCE DISTRIBUTION (access lines by actor) ---------------")
+    if log_source_counts:
+        for role, n in log_source_counts.items():
+            lines.append(f"- {role}: {n} access log lines")
+    else:
+        lines.append("(not available — run generation with access log, or N/A if no access data)")
+
+    return "\n".join(lines)
+
+
+def build_check_detection_report(true_counts, detected_counts, ips_that_attacked) -> str:
+    """Backward-compatible alias; actor sections empty unless you use :func:`build_check_report`."""
+    return build_check_report(
+        true_counts,
+        detected_counts,
+        ips_that_attacked,
+        profile_counts=None,
+        log_source_counts=None,
+    )
+
+
+def check_detection_stats(
+    true_counts,
+    detected_counts,
+    ips_that_attacked,
+    profile_counts=None,
+    log_source_counts=None,
+):
+    print(
+        "\n"
+        + build_check_report(
+            true_counts,
+            detected_counts,
+            ips_that_attacked,
+            profile_counts=profile_counts,
+            log_source_counts=log_source_counts,
+        )
+    )

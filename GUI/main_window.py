@@ -13,6 +13,7 @@ from PyQt6.QtCore import Qt, QObject, pyqtSignal
 
 from GUI.generation import GenPage
 from GUI.detection import DetectionPage
+from GUI.checking import CheckingPage
 
 _ASSETS = Path(__file__).resolve().parent.parent / "assets"
 
@@ -47,10 +48,12 @@ class ApplicationWindow(QMainWindow):
         self.home = HomePage()
         self.gen = GenPage()
         self.detect = DetectionPage(self.whiskers)
+        self.checking = CheckingPage(self.whiskers)
 
         self.tabs.addTab(self.home, "Home")
         self.tabs.addTab(self.gen, "Generator")
         self.tabs.addTab(self.detect, "Detector")
+        self.tabs.addTab(self.checking, "Checking")
 
     def closeEvent(self, event):
         if self.close_hides_only:
