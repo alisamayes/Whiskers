@@ -7,7 +7,7 @@ import pandas as pd
 from analysis.stats import report_detection_stats, show_actor_distribution
 from parser.log_parser import parse_logs, parse_firewall_logs, parse_auth_logs
 from analysis import feature_engineering
-from analysis.stats import check_detection_stats
+from analysis.stats import report_check_stats
 from analysis.detectors import (
     BruteForceDetector,
     ScanDetector,
@@ -121,6 +121,7 @@ class Whiskers:
             "attacker": 0,
             "compromised": 0
         }
+        self.ips_that_attacked = {}
         self.auth_attack_counters = {}
         self.auth_line_count = 0
 
@@ -256,12 +257,12 @@ class Whiskers:
             if getattr(detector, "kind", None) == "ml_anomaly":
                 ml_summary = getattr(detector, "last_run_summary", None)
 
-        report_detection_stats(
+        print(report_detection_stats(
             self.all_alerts,
             self.detected_attack_counts,
             self.mode,
             ml_summary=ml_summary,
-        )
+        ))
 
 
     def update_true_attack_counts_from_df(self):
@@ -415,7 +416,7 @@ class Whiskers:
             self.run_detection = False
 
         if self.check:
-            check_detection_stats(self.true_attack_counts, self.detected_attack_counts, self.ips_that_attacked)
+            print(report_check_stats(self.true_attack_counts, self.detected_attack_counts, self.ips_that_attacked, self.profile_counts, self.log_source_counts))
             self.check = False
 
     def open_ui(self) -> None:

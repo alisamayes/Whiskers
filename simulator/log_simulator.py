@@ -403,7 +403,7 @@ def generate_logs(
             firewall_f_ctx.close()
 
 
-    report_generation_stats(attack_counters)
+    print(report_generation_stats(attack_counters))
     return (
         attack_counters["access_brute_force"],
         attack_counters["access_directory_scan"],

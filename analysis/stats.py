@@ -14,30 +14,32 @@ def report_generation_stats(true_attack_counts):
     Report the true/generated attack counts for the current log.
 
     """
-    print("\n=============== Running Generation ===============\n")
+    lines: list[str] = ["\n=============== Running Generation ===============\n"]
 
     if not true_attack_counts:
-        print("No generated attack counts were provided.")
-        return
+        lines.append("No generated attack counts were provided.")
+        return "\n".join(lines)
 
     for kind, count in true_attack_counts.items():
-        print(f"{kind.replace('_', ' ').title()} attempts generated: {count}")
+        lines.append(f"{kind.replace('_', ' ').title()} attempts generated: {count}")
+
+    return "\n".join(lines)
 
 def report_detection_stats(all_alerts, detected_attack_counts, mode, *, ml_summary=None):
 
-    print("\n=============== Running Detection ===============\n")
+    lines: list[str] = ["\n=============== Running Detection ===============\n"]
     if mode == "verbose":
-            print("--- threat detections ---")
+            lines.append("--- threat detections ---")
             by_kind = {}
             for alert in all_alerts:
                 by_kind.setdefault(alert.kind, []).append(alert)
 
             for kind, alerts_of_kind in by_kind.items():
-                print(f"\n{kind.upper()} ({len(alerts_of_kind)} total):")
+                lines.append(f"\n{kind.upper()} ({len(alerts_of_kind)} total):")
                 detected_attack_counts[kind] = len(alerts_of_kind)
                 for alert in alerts_of_kind:
-                    print(f"  ⚠ {alert}")
-            print("--- end detections ---\n")
+                    lines.append(f"  ⚠ {alert}")
+            lines.append("--- end detections ---\n")
     else:
         # Summary view
         by_kind = {}
@@ -45,9 +47,9 @@ def report_detection_stats(all_alerts, detected_attack_counts, mode, *, ml_summa
             by_kind[alert.kind] = by_kind.get(alert.kind, 0) + 1
         for kind, count in by_kind.items():
             if kind == "ml_anomaly":
-                print(f"ML isolation forest identified {count} anomalous/ hostile IPs")
+                lines.append(f"ML isolation forest identified {count} anomalous/ hostile IPs")
             else:
-                print(f"{kind.replace('_', ' ').title()} attempts detected: {count}")
+                lines.append(f"{kind.replace('_', ' ').title()} attempts detected: {count}")
             detected_attack_counts[kind] = count
 
     if ml_summary:
@@ -60,41 +62,37 @@ def report_detection_stats(all_alerts, detected_attack_counts, mode, *, ml_summa
             n = use_forest = mad = flagged = None
 
         if n is not None and flagged is not None:
-            print("\n-------------- Machine Learning Behaviour Anomaly Detector --------------")
-            print(f"Unique IPs in this log: {n}")
+            lines.append("\n-------------- Machine Learning Behaviour Anomaly Detector --------------")
+            lines.append(f"Unique IPs in this log: {n}")
             if use_forest:
-                print(f"Outlier sensitivity: {mad:g}× ")
+                lines.append(f"Outlier sensitivity: {mad:g}× ")
             else:
-                print(
+                lines.append(
                     f" Only {n} IPs here — not enough for the full model. "
                     "Only IPs with very extreme attack-like behaviour were considered."
                 )
-            print(
+            lines.append(
                 f"Flagged as possible hostile IPs: {flagged} "
                 f"(out of {n} unique addresses)"
             )
+    return "\n".join(lines)
 
 
-def build_check_report(
-    true_counts: dict,
-    detected_counts: dict,
-    ips_that_attacked: dict,
-    *,
-    profile_counts: dict | None = None,
-    log_source_counts: dict | None = None,
-) -> str:
-    """Accuracy vs labels, user distribution, and log-line source stats (no detection rerun).
-
-    Intended after a prior detection run: compares ``detected_counts`` to ``true_counts``
-    refreshed from the same parsed dataframe.
+def report_check_stats(
+    true_counts,
+    detected_counts,
+    ips_that_attacked,
+    profile_counts,
+    log_source_counts
+    ) -> str:
     """
-    lines: list[str] = [
-        "Check (-c): accuracy vs log labels (uses last detection results; does not re-run detectors).",
-        "",
-    ]
+    Takes in relevant data relating to the true and detecked counts and outputs the accuracy of each attack type
+    """
+
+    lines: list[str] = ["\n=============== Running Checking ===============\n"]
 
     if len(detected_counts) != len(true_counts):
-        lines.append("Warning: detected vs true dictionaries differ in length.")
+        lines.append("Warning: amount of detected and true attack varieties differ in length.")
         lines.append("")
 
     lines.append("--------------- ACCURACY (per attack type) ---------------")
@@ -143,33 +141,3 @@ def build_check_report(
         lines.append("(not available — run generation with access log, or N/A if no access data)")
 
     return "\n".join(lines)
-
-
-def build_check_detection_report(true_counts, detected_counts, ips_that_attacked) -> str:
-    """Backward-compatible alias; actor sections empty unless you use :func:`build_check_report`."""
-    return build_check_report(
-        true_counts,
-        detected_counts,
-        ips_that_attacked,
-        profile_counts=None,
-        log_source_counts=None,
-    )
-
-
-def check_detection_stats(
-    true_counts,
-    detected_counts,
-    ips_that_attacked,
-    profile_counts=None,
-    log_source_counts=None,
-):
-    print(
-        "\n"
-        + build_check_report(
-            true_counts,
-            detected_counts,
-            ips_that_attacked,
-            profile_counts=profile_counts,
-            log_source_counts=log_source_counts,
-        )
-    )

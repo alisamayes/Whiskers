@@ -11,9 +11,7 @@ from PyQt6.QtWidgets import (
     QLabel,
     QPushButton,
 )
-
-from analysis.stats import build_check_report
-
+from analysis.stats import report_check_stats
 
 class CheckingPage(QWidget):
     def __init__(self, whiskers_agent, parent=None):
@@ -75,12 +73,12 @@ class CheckingPage(QWidget):
             self.info_stats.setText("")
             return
 
-        report = build_check_report(
-            w.true_attack_counts,
-            w.detected_attack_counts,
-            w.ips_that_attacked,
-            profile_counts=getattr(w, "profile_counts", None),
-            log_source_counts=getattr(w, "log_source_counts", None),
+        report = report_check_stats(
+            self.whiskers.true_attack_counts,
+            self.whiskers.detected_attack_counts,
+            self.whiskers.ips_that_attacked,
+            self.whiskers.profile_counts,
+            self.whiskers.log_source_counts,
         )
         self.report_stats.setText(report)
 
