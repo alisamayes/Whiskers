@@ -16,6 +16,7 @@ from simulator.auth_log_simulator import (
     AUTH_CLASS_SSH_BRUTEFORCE,
     AUTH_CLASS_SSH_USER_ENUM,
     AUTH_CLASS_SUDO_BRUTEFORCE,
+    AUTH_CLASS_PRIVLAGE_ESCALATION_CHAIN,
 )
 from GUI.config import active_dark_green
 
@@ -150,11 +151,7 @@ class GenPage(QWidget):
         if gen_auth:
             auth_counts = results[9]
             auth_lines = results[10]
-            total_episodes = (
-                auth_counts.get(AUTH_CLASS_SSH_BRUTEFORCE, 0)
-                + auth_counts.get(AUTH_CLASS_SSH_USER_ENUM, 0)
-                + auth_counts.get(AUTH_CLASS_SUDO_BRUTEFORCE, 0)
-            )
+            total_episodes = sum(int(auth_counts.get(k, 0) or 0) for k in auth_counts)
             stats_message += "\n\n--------------- AUTH LOG ---------------"
             stats_message += (
                 "\nSSH brute-force: "
@@ -167,6 +164,10 @@ class GenPage(QWidget):
             stats_message += (
                 "\nSudo auth failures: "
                 + str(auth_counts.get(AUTH_CLASS_SUDO_BRUTEFORCE, 0))
+            )
+            stats_message += (
+                "\nPrivilege escalation chain: "
+                + str(auth_counts.get(AUTH_CLASS_PRIVLAGE_ESCALATION_CHAIN, 0))
             )
         else:
             stats_message += "\n\nAuth log: not generated."
@@ -220,6 +221,100 @@ class GenPage(QWidget):
             profile_message += "\nCompromised: " + str(profile_counts["compromised"]) + " users\n"
 
         self.actor_stats.setText(profile_message)
+
+    def refresh_from_disk_probe(self, w) -> None:
+        """Show true attack counts and a short parse summary (same layout style as after Generate)."""
+        tc = getattr(w, "true_attack_counts", {}) or {}
+        had_access = getattr(w, "_silent_probe_had_access", False)
+        had_auth = getattr(w, "_silent_probe_had_auth", False)
+        had_fw = getattr(w, "_silent_probe_had_firewall", False)
+
+        stats_message = ""
+        if had_access:
+            stats_message += "--------------- ACCESS LOG ---------------"
+            stats_message += "\nBrute-force: " + str(tc.get("access_brute_force", 0))
+            stats_message += "\nDirectory scan: " + str(tc.get("access_directory_scan", 0))
+            stats_message += "\nRequest flood: " + str(tc.get("access_request_flood", 0))
+            stats_message += "\nSQL injection: " + str(tc.get("access_sql_injection", 0))
+            stats_message += "\nData exfiltration: " + str(tc.get("access_data_exfiltration", 0))
+            stats_message += "\nCommand injection: " + str(tc.get("access_command_injection", 0))
+        else:
+            stats_message += "Access log: no file found at configured path(s)."
+
+        if had_auth:
+            stats_message += "\n\n--------------- AUTH LOG ---------------"
+            stats_message += (
+                "\nSSH brute-force: "
+                + str(tc.get(AUTH_CLASS_SSH_BRUTEFORCE, 0))
+            )
+            stats_message += (
+                "\nSSH user enumeration: "
+                + str(tc.get(AUTH_CLASS_SSH_USER_ENUM, 0))
+            )
+            stats_message += (
+                "\nSudo auth failures: "
+                + str(tc.get(AUTH_CLASS_SUDO_BRUTEFORCE, 0))
+            )
+            stats_message += (
+                "\nPrivilege escalation chain: "
+                + str(tc.get(AUTH_CLASS_PRIVLAGE_ESCALATION_CHAIN, 0))
+            )
+        else:
+            stats_message += "\n\nAuth log: no file found at default or configured path(s)."
+
+        if had_fw:
+            stats_message += "\n\nFirewall log: loaded from disk."
+        else:
+            stats_message += "\n\nFirewall log: no file found at default or configured path(s)."
+
+        self.true_attack_stats.setText(stats_message)
+
+        df = getattr(w, "df", None)
+        pc = getattr(w, "profile_counts", {}) or {}
+        lsc = getattr(w, "log_source_counts", {}) or {}
+        sim_profiles = sum(int(pc.get(k, 0) or 0) for k in ("normal", "scanner", "attacker", "compromised"))
+
+        if sim_profiles > 0:
+            profile_message = "User distribution and access log line counts (from last simulation):"
+            profile_message += (
+                "\nNormal users: "
+                + str(pc.get("normal", 0))
+                + " users, "
+                + str(lsc.get("normal", 0))
+                + " access lines"
+            )
+            profile_message += (
+                "\nScanner: "
+                + str(pc.get("scanner", 0))
+                + " users, "
+                + str(lsc.get("scanner", 0))
+                + " access lines"
+            )
+            profile_message += (
+                "\nAttacker: "
+                + str(pc.get("attacker", 0))
+                + " users, "
+                + str(lsc.get("attacker", 0))
+                + " access lines"
+            )
+            profile_message += (
+                "\nCompromised: "
+                + str(pc.get("compromised", 0))
+                + " users, "
+                + str(lsc.get("compromised", 0))
+                + " access lines\n"
+            )
+            self.actor_stats.setText(profile_message)
+        elif df is not None and not df.empty and "log_source" in df.columns:
+            vc = df["log_source"].value_counts().to_string()
+            n = int(df.shape[0])
+            self.actor_stats.setText(
+                f"Parsed from disk: {n} merged row(s).\nRows by log_source:\n{vc}"
+            )
+        else:
+            self.actor_stats.setText(
+                "No merged dataframe yet (no log files found or empty parse)."
+            )
 
     def toggle_button(self, button: QPushButton):
         text = button.text()

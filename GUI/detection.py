@@ -18,6 +18,7 @@ from simulator.auth_log_simulator import (
     AUTH_CLASS_SSH_BRUTEFORCE,
     AUTH_CLASS_SSH_USER_ENUM,
     AUTH_CLASS_SUDO_BRUTEFORCE,
+    AUTH_CLASS_PRIVLAGE_ESCALATION_CHAIN,
 )
 from GUI.config import active_dark_green
 
@@ -69,13 +70,9 @@ class DetectionPage(QWidget):
         #--------------------------------------------
         self.true_attack_label = QLabel("Latest run — detection summary:")
         self.true_attack_stats = QLabel("(no run yet)")
-        self.actor_labels = QLabel("Actor Statistics:")
-        self.actor_stats = QLabel("(no run yet)")
 
         self.stats_box.addWidget(self.true_attack_label)
         self.stats_box.addWidget(self.true_attack_stats)
-        self.stats_box.addWidget(self.actor_labels)
-        self.stats_box.addWidget(self.actor_stats)
 
 
         self.layout.addLayout(self.detect_box)
@@ -170,22 +167,3 @@ class DetectionPage(QWidget):
             true_lines.append("(unavailable)")
 
         self.true_attack_stats.setText("\n".join(detected_lines + true_lines))
-
-        # If auth simulation counters exist, show them; otherwise show a simple placeholder.
-        auth_counts = getattr(whiskers_engine, "auth_attack_counters", None)
-        auth_lines = getattr(whiskers_engine, "auth_line_count", None)
-        if isinstance(auth_counts, dict) and auth_lines is not None:
-            total_episodes = (
-                auth_counts.get(AUTH_CLASS_SSH_BRUTEFORCE, 0)
-                + auth_counts.get(AUTH_CLASS_SSH_USER_ENUM, 0)
-                + auth_counts.get(AUTH_CLASS_SUDO_BRUTEFORCE, 0)
-            )
-            msg = "Auth log (if present):"
-            msg += "\nTotal lines parsed/generated: " + str(auth_lines)
-            msg += "\nAttack episodes (distinct count IDs): " + str(total_episodes)
-            msg += "\n  SSH brute-force: " + str(auth_counts.get(AUTH_CLASS_SSH_BRUTEFORCE, 0))
-            msg += "\n  SSH user enumeration: " + str(auth_counts.get(AUTH_CLASS_SSH_USER_ENUM, 0))
-            msg += "\n  Sudo auth failures: " + str(auth_counts.get(AUTH_CLASS_SUDO_BRUTEFORCE, 0))
-            self.actor_stats.setText(msg)
-        else:
-            self.actor_stats.setText("Run complete.")

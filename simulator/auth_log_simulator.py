@@ -13,6 +13,7 @@ AUTH_HOSTNAME = "app-server-01"
 AUTH_CLASS_SSH_BRUTEFORCE = "auth_ssh_bruteforce"
 AUTH_CLASS_SSH_USER_ENUM = "auth_ssh_user_enum"
 AUTH_CLASS_SUDO_BRUTEFORCE = "auth_sudo_bruteforce"
+AUTH_CLASS_PRIVLAGE_ESCALATION_CHAIN = "auth_privesc_chain"
 
 SSH_BRUTEFORCE_TARGETS = [
     "root",
@@ -272,9 +273,66 @@ def auth_sudo_bruteforce_attack(
     return lines, t
 
 
+def auth_privesc_chain_attack(
+    ip: str,
+    current_time: datetime.datetime,
+    count: int,
+) -> tuple[list[str], datetime.datetime]:
+    """Simulate post-compromise escalation: SSH success then repeated sudo auth failures.
+
+    Ground-truth trailer ``auth_privesc_chain {count}`` on every line in the episode.
+    """
+    lines: list[str] = []
+    t = current_time
+    host = AUTH_HOSTNAME
+    suffix = format_auth_ml_suffix(AUTH_CLASS_PRIVLAGE_ESCALATION_CHAIN, count)
+    user = random.choice(["deploy", "ubuntu", "ci-runner", "backup", "build"])
+    port = _random_ssh_port()
+    pid = _random_sshd_pid()
+
+    ts = format_trad_syslog_ts(t)
+    lines.append(
+        f"{ts} {host} sshd[{pid}]: Accepted password for {user} "
+        f"from {ip} port {port} ssh2{suffix}"
+    )
+    t = _advance_time(t, min_ms=800, max_ms=5200)
+
+    uid = random.randint(1000, 65534)
+    tty_n = random.randint(0, 6)
+    n_fail = random.randint(3, 7)
+    for _ in range(n_fail):
+        ts = format_trad_syslog_ts(t)
+        target = random.choice(["root", "root", "root", "postgres", "www-data"])
+        lines.append(
+            f"{ts} {host} sudo: pam_unix(sudo:auth): authentication failure; "
+            f"logname={user} uid={uid} euid=0 tty=/dev/pts/{tty_n} "
+            f"ruser={user} rhost=  user={target}{suffix}"
+        )
+        t = _advance_time(t, min_ms=300, max_ms=3800)
+
+    ts = format_trad_syslog_ts(t)
+    pwd = f"/home/{user}"
+    cmd = random.choice(
+        [
+            "/bin/cat /etc/shadow",
+            "/usr/bin/id",
+            "/bin/bash",
+            "/usr/bin/chmod +s /tmp/.hidden",
+        ]
+    )
+    lines.append(
+        f"{ts} {host} sudo:   {user} : TTY=pts/{tty_n} ; PWD={pwd} ; "
+        f"USER=root ; COMMAND={cmd}{suffix}"
+    )
+    t = _advance_time(t, min_ms=200, max_ms=1500)
+
+    return lines, t
+
+
 # Registry for callers (e.g. log generator, tests)
 AUTH_ATTACK_FUNCTIONS = {
     AUTH_CLASS_SSH_BRUTEFORCE: auth_ssh_bruteforce_attack,
     AUTH_CLASS_SSH_USER_ENUM: auth_ssh_user_enum_attack,
     AUTH_CLASS_SUDO_BRUTEFORCE: auth_sudo_bruteforce_attack,
+    AUTH_CLASS_PRIVLAGE_ESCALATION_CHAIN: auth_privesc_chain_attack,
 }

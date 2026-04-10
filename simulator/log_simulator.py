@@ -6,9 +6,6 @@ import sys
 from simulator.user import User, PROFILES, IPS_NORMAL, IPS_ATTACK
 from simulator.auth_log_simulator import (
     AUTH_ATTACK_FUNCTIONS,
-    AUTH_CLASS_SSH_BRUTEFORCE,
-    AUTH_CLASS_SSH_USER_ENUM,
-    AUTH_CLASS_SUDO_BRUTEFORCE,
     generate_auth_normal_burst,
     generate_auth_normal_event,
 )
@@ -263,10 +260,9 @@ def generate_logs(
         "access_sql_injection": 0,
         "access_data_exfiltration": 0,
         "access_command_injection": 0,
-        "auth_ssh_bruteforce": 0,
-        "auth_ssh_user_enum": 0,
-        "auth_sudo_bruteforce": 0,
     }
+    for _auth_kind in AUTH_ATTACK_FUNCTIONS:
+        attack_counters[_auth_kind] = 0
 
     auth_line_count = 0
 
@@ -318,14 +314,8 @@ def generate_logs(
         for i in range(size):
             if gen_auth:
                 # Occasional realistic auth attacks (attacker IPs); otherwise benign bursts.
-                if random.random() < 0.012:
-                    kind = random.choice(
-                        [
-                            AUTH_CLASS_SSH_BRUTEFORCE,
-                            AUTH_CLASS_SSH_USER_ENUM,
-                            AUTH_CLASS_SUDO_BRUTEFORCE,
-                        ]
-                    )
+                if random.random() < 0.016:
+                    kind = random.choice(list(AUTH_ATTACK_FUNCTIONS.keys()))
                     attack_counters[kind] += 1
                     atk_ip = random.choice(IPS_ATTACK)
                     atk_fn = AUTH_ATTACK_FUNCTIONS[kind]
@@ -414,11 +404,7 @@ def generate_logs(
         profile_counts,
         log_source_counts,
         ips_that_attacked,
-        {
-            "auth_ssh_bruteforce": attack_counters["auth_ssh_bruteforce"],
-            "auth_ssh_user_enum": attack_counters["auth_ssh_user_enum"],
-            "auth_sudo_bruteforce": attack_counters["auth_sudo_bruteforce"],
-        },
+        {k: attack_counters[k] for k in AUTH_ATTACK_FUNCTIONS},
         auth_line_count,
     )
 

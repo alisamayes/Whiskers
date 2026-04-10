@@ -311,7 +311,7 @@ def parse_auth_logs(file, source: str = "auth"):
     return df
 
 
-def parse_logs(file, source: str = "access"):
+def parse_logs(file, source: str = "access", *, quiet: bool = False):
 
     logs = []
     with open(file) as f:
@@ -319,7 +319,7 @@ def parse_logs(file, source: str = "access"):
         for line in f:
 
             match = re.search(ACCESS_PATTERN, line)
-            if not match:
+            if not match and not quiet:
                 print("NO MATCH: ", line)
 
             if match:

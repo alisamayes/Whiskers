@@ -50,6 +50,33 @@ class CheckingPage(QWidget):
         self.layout.addLayout(self.stats_box)
         self.setLayout(self.layout)
 
+    def refresh_from_engine(self, w) -> None:
+        """Show check-style summary from current engine state (no detection re-run)."""
+        if not hasattr(w, "df") or w.df is None or w.df.empty:
+            self.report_stats.setText(
+                "(no parsed logs — run Detector after logs are available)"
+            )
+            self.info_stats.setText("")
+            return
+        try:
+            w.update_true_attack_counts_from_df()
+        except Exception as e:
+            self.report_stats.setText(f"Error while reading true counts from dataframe:\n{e}")
+            self.info_stats.setText("")
+            return
+        report = report_check_stats(
+            w.true_attack_counts,
+            w.detected_attack_counts,
+            w.ips_that_attacked,
+            w.profile_counts,
+            w.log_source_counts,
+        )
+        self.report_stats.setText(report)
+        n = int(w.df.shape[0])
+        self.info_stats.setText(
+            f"{n} row(s) in merged dataframe (true counts refreshed from labels)."
+        )
+
     def run_check(self) -> None:
         w = getattr(self.window(), "whiskers", None)
         if w is None:
@@ -74,11 +101,11 @@ class CheckingPage(QWidget):
             return
 
         report = report_check_stats(
-            self.whiskers.true_attack_counts,
-            self.whiskers.detected_attack_counts,
-            self.whiskers.ips_that_attacked,
-            self.whiskers.profile_counts,
-            self.whiskers.log_source_counts,
+            w.true_attack_counts,
+            w.detected_attack_counts,
+            w.ips_that_attacked,
+            w.profile_counts,
+            w.log_source_counts,
         )
         self.report_stats.setText(report)
 
