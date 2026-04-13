@@ -13,13 +13,12 @@ from PyQt6.QtWidgets import (
 )
 from simulator.log_simulator import generate_logs
 from simulator.auth_log_simulator import (
-    AUTH_CLASS_SSH_BRUTEFORCE,
-    AUTH_CLASS_SSH_USER_ENUM,
-    AUTH_CLASS_SUDO_BRUTEFORCE,
-    AUTH_CLASS_PRIVLAGE_ESCALATION_CHAIN,
+    auth_ssh_bruteforce_attack,
+    auth_ssh_user_enum_attack,
+    auth_sudo_bruteforce_attack,
+    auth_privilege_escalation_attack,
 )
 from GUI.config import active_dark_green
-
 
 
 class GenPage(QWidget):
@@ -150,22 +149,22 @@ class GenPage(QWidget):
         if gen_auth:
             auth_counts = results[9]
             auth_lines = results[10]
-            total_episodes = sum(int(auth_counts.get(k, 0) or 0) for k in auth_counts)
+            total_episodes = sum(int(auth_counts.get(k, 0) or 0) for k in ["auth_ssh_bruteforce", "auth_ssh_user_enum", "auth_sudo_bruteforce", "auth_privilege_escalation"])
             stats_message += (
                 "\nSSH brute-force: "
-                + str(auth_counts.get(AUTH_CLASS_SSH_BRUTEFORCE, 0))
+                + str(auth_counts.get("auth_ssh_bruteforce", 0))
             )
             stats_message += (
                 "\nSSH user enumeration: "
-                + str(auth_counts.get(AUTH_CLASS_SSH_USER_ENUM, 0))
+                + str(auth_counts.get("auth_ssh_user_enum", 0))
             )
             stats_message += (
                 "\nSudo auth failures: "
-                + str(auth_counts.get(AUTH_CLASS_SUDO_BRUTEFORCE, 0))
+                + str(auth_counts.get("auth_sudo_bruteforce", 0))
             )
             stats_message += (
                 "\nPrivilege escalation chain: "
-                + str(auth_counts.get(AUTH_CLASS_PRIVLAGE_ESCALATION_CHAIN, 0))
+                + str(auth_counts.get("auth_privilege_escalation", 0))
             )
         else:
             stats_message += "\nNot generated."

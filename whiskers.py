@@ -93,6 +93,7 @@ class Whiskers:
             "auth_ssh_bruteforce": 0,
             "auth_ssh_user_enum": 0,
             "auth_sudo_bruteforce": 0,
+            "auth_privilege_escalation": 0,
         }
 
         self.detected_attack_counts = {
@@ -105,6 +106,7 @@ class Whiskers:
             "auth_ssh_bruteforce": 0,
             "auth_ssh_user_enum": 0,
             "auth_sudo_bruteforce": 0,
+            "auth_privilege_escalation": 0,
         }
 
         # Stats from log generation
@@ -122,7 +124,6 @@ class Whiskers:
             "compromised": 0
         }
         self.ips_that_attacked = {}
-        self.auth_attack_counters = {}
         self.auth_line_count = 0
 
         mouse_art_1 = ['''
@@ -401,8 +402,11 @@ class Whiskers:
             self.profile_counts = results[6]
             self.log_source_counts = results[7]
             self.ips_that_attacked = results[8]
-            self.auth_attack_counters = results[9]
-            self.auth_line_count = results[10]
+            self.auth_ssh_bruteforce_count = results[9]
+            self.auth_ssh_user_enum_count = results[10]
+            self.auth_sudo_bruteforce_count = results[11]
+            self.auth_privilege_escalation_count = results[12]
+            self.auth_line_count = results[13]
             self.gen_new = False
             self.gen_access = False
             self.gen_auth = False

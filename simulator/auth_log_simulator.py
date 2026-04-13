@@ -9,12 +9,6 @@ from simulator.user import IPS_NORMAL
 
 AUTH_HOSTNAME = "app-server-01"
 
-# Supervised / ground-truth labels (trailer on each line in the episode)
-AUTH_CLASS_SSH_BRUTEFORCE = "auth_ssh_bruteforce"
-AUTH_CLASS_SSH_USER_ENUM = "auth_ssh_user_enum"
-AUTH_CLASS_SUDO_BRUTEFORCE = "auth_sudo_bruteforce"
-AUTH_CLASS_PRIVLAGE_ESCALATION_CHAIN = "auth_privilege_escalation"
-
 SSH_BRUTEFORCE_TARGETS = [
     "root",
     "admin",
@@ -175,7 +169,7 @@ def auth_ssh_bruteforce_attack(
     host = AUTH_HOSTNAME
     port = _random_ssh_port()
     pid = _random_sshd_pid()
-    suffix = format_auth_ml_suffix(AUTH_CLASS_SSH_BRUTEFORCE, count)
+    suffix = format_auth_ml_suffix("auth_ssh_bruteforce", count)
     attempts = random.randint(18, 36)
 
     for _ in range(attempts):
@@ -218,7 +212,7 @@ def auth_ssh_user_enum_attack(
     host = AUTH_HOSTNAME
     port = _random_ssh_port()
     pid = _random_sshd_pid()
-    suffix = format_auth_ml_suffix(AUTH_CLASS_SSH_USER_ENUM, count)
+    suffix = format_auth_ml_suffix("auth_ssh_user_enum", count)
     attempts = random.randint(22, 55)
 
     for _ in range(attempts):
@@ -253,7 +247,7 @@ def auth_sudo_bruteforce_attack(
     lines: list[str] = []
     t = current_time
     host = AUTH_HOSTNAME
-    suffix = format_auth_ml_suffix(AUTH_CLASS_SUDO_BRUTEFORCE, count)
+    suffix = format_auth_ml_suffix("auth_sudo_bruteforce", count)
     ruser = random.choice(AUTH_USERS)
     uid = random.randint(1000, 65534)
     tty_n = random.randint(0, 6)
@@ -285,7 +279,7 @@ def auth_privilege_escalation_attack(
     lines: list[str] = []
     t = current_time
     host = AUTH_HOSTNAME
-    suffix = format_auth_ml_suffix(AUTH_CLASS_PRIVLAGE_ESCALATION_CHAIN, count)
+    suffix = format_auth_ml_suffix("auth_privilege_escalation", count)
     user = random.choice(["deploy", "ubuntu", "ci-runner", "backup", "build"])
     port = _random_ssh_port()
     pid = _random_sshd_pid()
@@ -327,12 +321,3 @@ def auth_privilege_escalation_attack(
     t = _advance_time(t, min_ms=200, max_ms=1500)
 
     return lines, t
-
-
-# Registry for callers (e.g. log generator, tests)
-AUTH_ATTACK_FUNCTIONS = {
-    AUTH_CLASS_SSH_BRUTEFORCE: auth_ssh_bruteforce_attack,
-    AUTH_CLASS_SSH_USER_ENUM: auth_ssh_user_enum_attack,
-    AUTH_CLASS_SUDO_BRUTEFORCE: auth_sudo_bruteforce_attack,
-    AUTH_CLASS_PRIVLAGE_ESCALATION_CHAIN: auth_privilege_escalation_attack,
-}

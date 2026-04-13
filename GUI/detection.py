@@ -15,10 +15,10 @@ from PyQt6.QtWidgets import (
 )
 
 from simulator.auth_log_simulator import (
-    AUTH_CLASS_SSH_BRUTEFORCE,
-    AUTH_CLASS_SSH_USER_ENUM,
-    AUTH_CLASS_SUDO_BRUTEFORCE,
-    AUTH_CLASS_PRIVLAGE_ESCALATION_CHAIN,
+    auth_ssh_bruteforce_attack,
+    auth_ssh_user_enum_attack,
+    auth_sudo_bruteforce_attack,
+    auth_privilege_escalation_attack,
 )
 from GUI.config import active_dark_green
 
