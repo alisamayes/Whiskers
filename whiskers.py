@@ -233,15 +233,15 @@ class Whiskers:
             + len(self.firewall_logs)
             + len(self.auth_logs)
         )
-        print("\n=============== Parsing Logs ===============\n")
-        print(f"Parsed {self.df.shape[0]} lines from {total_files} log file(s).")
+        #print("\n=============== Parsing Logs ===============\n")
+        #print(f"Parsed {self.df.shape[0]} lines from {total_files} log file(s).")
 
         # create features for later use
         self.features = feature_engineering.basic_aggregate_features(self.df)
-        if self.mode == "verbose":
-            print("\n--- feature matrix (by IP) ---")
-            print(self.features)
-            print("--- end features ---\n")
+        #if self.mode == "verbose":
+            #print("\n--- feature matrix (by IP) ---")
+            #print(self.features)
+            #print("--- end features ---\n")
 
     def run_detection_models(self):
         """Execute all detectors against the current dataframe and print results."""
@@ -257,7 +257,7 @@ class Whiskers:
             if getattr(detector, "kind", None) == "ml_anomaly":
                 ml_summary = getattr(detector, "last_run_summary", None)
 
-        print(report_detection_stats(
+        return (report_detection_stats(
             self.all_alerts,
             self.detected_attack_counts,
             self.mode,
@@ -410,12 +410,14 @@ class Whiskers:
             self.mode = "normal"
         
         if self.run_detection:
+            print("\n=============== Running Detection ===============\n")
             self.prepare_dataframe()
             self.update_true_attack_counts_from_df()
-            self.run_detection_models()
+            print(self.run_detection_models())
             self.run_detection = False
 
         if self.check:
+            print("\n=============== Running Checking ===============\n")
             print(report_check_stats(self.true_attack_counts, self.detected_attack_counts, self.ips_that_attacked, self.profile_counts, self.log_source_counts))
             self.check = False
 
@@ -443,7 +445,18 @@ class Whiskers:
 
     def _run_gui_thread(self) -> None:
         from PyQt6.QtWidgets import QApplication
-        from GUI.main_window import ApplicationWindow, UiBridge
+        from GUI.main_window import ApplicationWindow, UiBridge, load_window_icon
+
+        # Windows taskbar uses python.exe unless the process has its own AppUserModelID.
+        if sys.platform == "win32":
+            try:
+                import ctypes
+
+                ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
+                    "Whiskers.Whiskers.Desktop.1"
+                )
+            except Exception:
+                pass
 
         try:
             self._qapp = QApplication([sys.argv[0]])
@@ -453,6 +466,7 @@ class Whiskers:
             return
 
         self._qapp.setQuitOnLastWindowClosed(False)
+        self._qapp.setWindowIcon(load_window_icon())
         self._gui_window = ApplicationWindow(self)
         self._gui_window.close_hides_only = True
         self._gui_window.whiskers = self

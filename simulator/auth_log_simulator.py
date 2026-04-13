@@ -13,7 +13,7 @@ AUTH_HOSTNAME = "app-server-01"
 AUTH_CLASS_SSH_BRUTEFORCE = "auth_ssh_bruteforce"
 AUTH_CLASS_SSH_USER_ENUM = "auth_ssh_user_enum"
 AUTH_CLASS_SUDO_BRUTEFORCE = "auth_sudo_bruteforce"
-AUTH_CLASS_PRIVLAGE_ESCALATION_CHAIN = "auth_privesc_chain"
+AUTH_CLASS_PRIVLAGE_ESCALATION_CHAIN = "auth_privilege_escalation"
 
 SSH_BRUTEFORCE_TARGETS = [
     "root",
@@ -273,14 +273,14 @@ def auth_sudo_bruteforce_attack(
     return lines, t
 
 
-def auth_privesc_chain_attack(
+def auth_privilege_escalation_attack(
     ip: str,
     current_time: datetime.datetime,
     count: int,
 ) -> tuple[list[str], datetime.datetime]:
     """Simulate post-compromise escalation: SSH success then repeated sudo auth failures.
 
-    Ground-truth trailer ``auth_privesc_chain {count}`` on every line in the episode.
+    Ground-truth trailer ``auth_privilege_escalation {count}`` on every line in the episode.
     """
     lines: list[str] = []
     t = current_time
@@ -334,5 +334,5 @@ AUTH_ATTACK_FUNCTIONS = {
     AUTH_CLASS_SSH_BRUTEFORCE: auth_ssh_bruteforce_attack,
     AUTH_CLASS_SSH_USER_ENUM: auth_ssh_user_enum_attack,
     AUTH_CLASS_SUDO_BRUTEFORCE: auth_sudo_bruteforce_attack,
-    AUTH_CLASS_PRIVLAGE_ESCALATION_CHAIN: auth_privesc_chain_attack,
+    AUTH_CLASS_PRIVLAGE_ESCALATION_CHAIN: auth_privilege_escalation_attack,
 }

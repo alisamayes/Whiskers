@@ -68,12 +68,8 @@ class DetectionPage(QWidget):
 
         self.stats_box = QVBoxLayout()
         #--------------------------------------------
-        self.true_attack_label = QLabel("Latest run — detection summary:")
-        self.true_attack_stats = QLabel("(no run yet)")
-
-        self.stats_box.addWidget(self.true_attack_label)
+        self.true_attack_stats = QLabel("")
         self.stats_box.addWidget(self.true_attack_stats)
-
 
         self.layout.addLayout(self.detect_box)
         self.layout.addLayout(self.stats_box)

@@ -14,7 +14,7 @@ def report_generation_stats(true_attack_counts):
     Report the true/generated attack counts for the current log.
 
     """
-    lines: list[str] = ["\n=============== Running Generation ===============\n"]
+    lines: list[str] = [""]
 
     if not true_attack_counts:
         lines.append("No generated attack counts were provided.")
@@ -27,7 +27,7 @@ def report_generation_stats(true_attack_counts):
 
 def report_detection_stats(all_alerts, detected_attack_counts, mode, *, ml_summary=None):
 
-    lines: list[str] = ["\n=============== Running Detection ===============\n"]
+    lines: list[str] = [""]
     if mode == "verbose":
             lines.append("--- threat detections ---")
             by_kind = {}
@@ -89,7 +89,7 @@ def report_check_stats(
     Takes in relevant data relating to the true and detecked counts and outputs the accuracy of each attack type
     """
 
-    lines: list[str] = ["\n=============== Running Checking ===============\n"]
+    lines: list[str] = [""]
 
     if len(detected_counts) != len(true_counts):
         lines.append("Warning: amount of detected and true attack varieties differ in length.")

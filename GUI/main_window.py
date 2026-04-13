@@ -7,13 +7,15 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QLabel,
     QSizePolicy,
+    QSystemTrayIcon,
 )
-from PyQt6.QtGui import QPixmap, QFont, QResizeEvent, QShowEvent
+from PyQt6.QtGui import QPixmap, QFont, QResizeEvent, QShowEvent, QIcon
 from PyQt6.QtCore import Qt, QObject, pyqtSignal
 
 from GUI.generation import GenPage
 from GUI.detection import DetectionPage
 from GUI.checking import CheckingPage
+from GUI.log_reader import LogReaderPage
 
 _ASSETS = Path(__file__).resolve().parent.parent / "assets"
 
@@ -34,6 +36,17 @@ def _load_logo_pixmap() -> QPixmap:
     return QPixmap()
 
 
+def load_window_icon() -> QIcon:
+    """Resolve icon next to this package (not CWD). Required for taskbar/tray on Windows."""
+    for name in ("whiskers_logo.png", "whiskers_logo.jpeg", "whisker_logo_alt.jpeg"):
+        path = _ASSETS / name
+        if path.is_file():
+            icon = QIcon(str(path))
+            if not icon.isNull():
+                return icon
+    return QIcon()
+
+
 class ApplicationWindow(QMainWindow):
     def __init__(self, whiskers_agent):
         super().__init__()
@@ -42,6 +55,14 @@ class ApplicationWindow(QMainWindow):
         self.setGeometry(200, 200, 600, 400)
         self.close_hides_only = False
 
+        # Set icons to Whiskers logo (path vs. CWD — see load_window_icon)
+        window_icon = load_window_icon()
+        self.tray = QSystemTrayIcon(window_icon, self)
+        self.tray.setVisible(True)
+        self.tray.setToolTip("Whiskers")
+        self.setWindowIcon(window_icon)
+
+
         self.tabs = QTabWidget()
         self.setCentralWidget(self.tabs)
 
@@ -49,11 +70,13 @@ class ApplicationWindow(QMainWindow):
         self.gen = GenPage()
         self.detect = DetectionPage(self.whiskers)
         self.checking = CheckingPage(self.whiskers)
+        self.reader = LogReaderPage(self.whiskers)
 
         self.tabs.addTab(self.home, "Home")
         self.tabs.addTab(self.gen, "Generator")
         self.tabs.addTab(self.detect, "Detector")
         self.tabs.addTab(self.checking, "Checking")
+        self.tabs.addTab(self.reader, "Log Reader")
 
     def closeEvent(self, event):
         if self.close_hides_only:

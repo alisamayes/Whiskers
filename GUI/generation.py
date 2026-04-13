@@ -76,12 +76,10 @@ class GenPage(QWidget):
 
         self.stats_box = QVBoxLayout()
         #--------------------------------------------
-        self.true_attack_label = QLabel("Latest run — generation summary:")
-        self.true_attack_stats = QLabel(": : : :")
-        self.actor_labels = QLabel("Actor Statistics:")
-        self.actor_stats = QLabel(": : : :")
+        self.true_attack_stats = QLabel("")
+        self.actor_labels = QLabel("")
+        self.actor_stats = QLabel("")
 
-        self.stats_box.addWidget(self.true_attack_label)
         self.stats_box.addWidget(self.true_attack_stats)
         self.stats_box.addWidget(self.actor_labels)
         self.stats_box.addWidget(self.actor_stats)
@@ -137,8 +135,8 @@ class GenPage(QWidget):
     ):
         stats_message = ""
 
+        stats_message += "\n--------------- ACCESS LOG ---------------"
         if gen_access:
-            stats_message += "--------------- ACCESS LOG ---------------"
             stats_message += "\nBrute-force: " + str(results[0])
             stats_message += "\nDirectory scan: " + str(results[1])
             stats_message += "\nRequest flood: " + str(results[2])
@@ -146,13 +144,13 @@ class GenPage(QWidget):
             stats_message += "\nData exfiltration: " + str(results[4])
             stats_message += "\nCommand injection: " + str(results[5])
         else:
-            stats_message += "Access log: not generated."
+            stats_message += "\nNot generated."
 
+        stats_message += "\n--------------- AUTH LOG ---------------"
         if gen_auth:
             auth_counts = results[9]
             auth_lines = results[10]
             total_episodes = sum(int(auth_counts.get(k, 0) or 0) for k in auth_counts)
-            stats_message += "\n\n--------------- AUTH LOG ---------------"
             stats_message += (
                 "\nSSH brute-force: "
                 + str(auth_counts.get(AUTH_CLASS_SSH_BRUTEFORCE, 0))
@@ -170,12 +168,13 @@ class GenPage(QWidget):
                 + str(auth_counts.get(AUTH_CLASS_PRIVLAGE_ESCALATION_CHAIN, 0))
             )
         else:
-            stats_message += "\n\nAuth log: not generated."
+            stats_message += "\nNot generated."
 
+        stats_message += "\n--------------- FIREWALL LOG ---------------"
         if gen_firewall:
-            stats_message += "\n\nFirewall log: generated (data/firewall.log)."
+            stats_message += "\nTODO: Implement firewall log generation"
         else:
-            stats_message += "\n\nFirewall log: not generated."
+            stats_message += "\nNot generated."
 
         self.true_attack_stats.setText(stats_message)
 
@@ -229,9 +228,8 @@ class GenPage(QWidget):
         had_auth = getattr(w, "_silent_probe_had_auth", False)
         had_fw = getattr(w, "_silent_probe_had_firewall", False)
 
-        stats_message = ""
+        stats_message = "\n--------------- ACCESS LOG ---------------"
         if had_access:
-            stats_message += "--------------- ACCESS LOG ---------------"
             stats_message += "\nBrute-force: " + str(tc.get("access_brute_force", 0))
             stats_message += "\nDirectory scan: " + str(tc.get("access_directory_scan", 0))
             stats_message += "\nRequest flood: " + str(tc.get("access_request_flood", 0))
@@ -241,8 +239,8 @@ class GenPage(QWidget):
         else:
             stats_message += "Access log: no file found at configured path(s)."
 
+        stats_message += "\n--------------- AUTH LOG ---------------"
         if had_auth:
-            stats_message += "\n\n--------------- AUTH LOG ---------------"
             stats_message += (
                 "\nSSH brute-force: "
                 + str(tc.get(AUTH_CLASS_SSH_BRUTEFORCE, 0))
@@ -260,12 +258,13 @@ class GenPage(QWidget):
                 + str(tc.get(AUTH_CLASS_PRIVLAGE_ESCALATION_CHAIN, 0))
             )
         else:
-            stats_message += "\n\nAuth log: no file found at default or configured path(s)."
+            stats_message += "\nAuth log: no file found at default or configured path(s)."
 
+        stats_message += "\n--------------- FIREWALL LOG ---------------"
         if had_fw:
-            stats_message += "\n\nFirewall log: loaded from disk."
+            stats_message += "\nFirewall log: loaded from disk."
         else:
-            stats_message += "\n\nFirewall log: no file found at default or configured path(s)."
+            stats_message += "\nFirewall log: no file found at default or configured path(s)."
 
         self.true_attack_stats.setText(stats_message)
 

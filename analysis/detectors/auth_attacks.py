@@ -134,16 +134,16 @@ class AuthSudoBruteforceDetector(BaseDetector):
         )
 
 
-class AuthPrivescChainDetector(BaseDetector):
+class AuthPrivilegeEscalationChain(BaseDetector):
     """SSH login success followed by sudo auth failures for the same account.
 
     When the dataframe has Whiskers-style ``classification`` / ``count`` labels
     (simulated logs), only anchors on ``ssh/accepted`` rows tagged
-    ``auth_privesc_chain`` and matches sudo failures with the same episode
+    ``auth_privilege_escalation`` and matches sudo failures with the same episode
     ``count``. Unlabeled logs use a strict time-based heuristic only.
     """
 
-    kind = "auth_privesc_chain"
+    kind = "auth_privilege_escalation"
     description = "SSH accepted then sudo pam failures (labeled episode or heuristic)"
 
     def __init__(

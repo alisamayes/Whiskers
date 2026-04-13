@@ -22,26 +22,18 @@ class CheckingPage(QWidget):
         self.layout = QVBoxLayout()
 
         self.check_box = QVBoxLayout()
-        self.intro = QLabel(
-            "Uses the dataframe and detector results already in memory. "
-            "Run Detector first, then CHECK (same idea as CLI -c — no models re-run)."
-        )
-        self.intro.setWordWrap(True)
 
         self.check_button = QPushButton("CHECK")
         self.check_button.clicked.connect(self.run_check)
-        self.check_box.addWidget(self.intro)
         self.check_box.addWidget(self.check_button)
 
         self.stats_box = QVBoxLayout()
-        self.report_label = QLabel("Latest run — check summary:")
-        self.report_stats = QLabel("(no run yet)")
+        self.report_stats = QLabel("")
         self.report_stats.setWordWrap(True)
-        self.info_label = QLabel("Dataframe:")
+        self.info_label = QLabel("")
         self.info_stats = QLabel("")
         self.info_stats.setWordWrap(True)
 
-        self.stats_box.addWidget(self.report_label)
         self.stats_box.addWidget(self.report_stats)
         self.stats_box.addWidget(self.info_label)
         self.stats_box.addWidget(self.info_stats)

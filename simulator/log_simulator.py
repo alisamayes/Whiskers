@@ -393,6 +393,7 @@ def generate_logs(
             firewall_f_ctx.close()
 
 
+    print("\n=============== Running Generation ===============\n")
     print(report_generation_stats(attack_counters))
     return (
         attack_counters["access_brute_force"],

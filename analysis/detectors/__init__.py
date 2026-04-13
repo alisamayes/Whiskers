@@ -8,7 +8,7 @@ from .sql_injection import SqlInjectionDetector
 from .exfiltration import ExfiltrationDetector
 from .command_injection import CommandInjectionDetector
 from .auth_attacks import (
-    AuthPrivescChainDetector,
+    AuthPrivilegeEscalationChain,
     AuthSshBruteforceDetector,
     AuthSshUserEnumDetector,
     AuthSudoBruteforceDetector,
@@ -25,7 +25,7 @@ __all__ = [
     "SqlInjectionDetector",
     "ExfiltrationDetector",
     "CommandInjectionDetector",
-    "AuthPrivescChainDetector",
+    "AuthPrivilegeEscalationChain",
     "AuthSshBruteforceDetector",
     "AuthSshUserEnumDetector",
     "AuthSudoBruteforceDetector",
