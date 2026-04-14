@@ -12,23 +12,18 @@ from PyQt6.QtWidgets import (
     QLineEdit
 )
 from simulator.log_simulator import generate_logs
-from simulator.auth_log_simulator import (
-    auth_ssh_bruteforce_attack,
-    auth_ssh_user_enum_attack,
-    auth_sudo_bruteforce_attack,
-    auth_privilege_escalation_attack,
-)
 from GUI.config import active_dark_green
 
 
 class GenPage(QWidget):
-    def __init__(self):
+    def __init__(self, whiskers_agent=None):
         """
         Initialize the Generator Page widget.
         Sets up the page with a range of buttons that allow the user to handle the generation of new simulated log files with buttons as opposed
         to CLI commands, which should be more user friendly
         """
         super().__init__()
+        self.whiskers = whiskers_agent
 
         #Pyqt6 widgets
 
@@ -102,6 +97,7 @@ class GenPage(QWidget):
 
 
     def generate(self):
+        """Run log generation with current UI toggles and display results."""
         try:
             size = int(self.size_input.text())
         except ValueError:
@@ -110,13 +106,24 @@ class GenPage(QWidget):
         gen_access = self.log_types["Access"]["state"]
         gen_auth = self.log_types["Auth"]["state"]
         gen_firewall = self.log_types["Firewall"]["state"]
-        results = generate_logs(
-            size,
-            100,
-            gen_access,
-            gen_auth,
-            gen_firewall,
-        )
+        engine = getattr(self.window(), "whiskers", None) or self.whiskers
+        if engine is not None:
+            results = engine.run_generation(
+                size=size,
+                users=100,
+                gen_access=gen_access,
+                gen_auth=gen_auth,
+                gen_firewall=gen_firewall,
+            )
+        else:
+            # Fallback for standalone page usage outside the main Whiskers window.
+            results = generate_logs(
+                size,
+                100,
+                gen_access,
+                gen_auth,
+                gen_firewall,
+            )
         self.update_stats(
             results,
             gen_access=gen_access,
@@ -132,40 +139,42 @@ class GenPage(QWidget):
         gen_auth: bool = False,
         gen_firewall: bool = False,
     ):
+        """Render generation summary counts for selected log sources."""
+        attack_counters = results["attack_counters"]
+        profile_counts = results["profile_counts"]
+        log_source_counts = results["log_source_counts"]
+        auth_lines = int(results["auth_line_count"] or 0)
         stats_message = ""
 
         stats_message += "\n--------------- ACCESS LOG ---------------"
         if gen_access:
-            stats_message += "\nBrute-force: " + str(results[0])
-            stats_message += "\nDirectory scan: " + str(results[1])
-            stats_message += "\nRequest flood: " + str(results[2])
-            stats_message += "\nSQL injection: " + str(results[3])
-            stats_message += "\nData exfiltration: " + str(results[4])
-            stats_message += "\nCommand injection: " + str(results[5])
+            stats_message += "\nBrute-force: " + str(attack_counters.get("access_brute_force", 0))
+            stats_message += "\nDirectory scan: " + str(attack_counters.get("access_directory_scan", 0))
+            stats_message += "\nRequest flood: " + str(attack_counters.get("access_request_flood", 0))
+            stats_message += "\nSQL injection: " + str(attack_counters.get("access_sql_injection", 0))
+            stats_message += "\nData exfiltration: " + str(attack_counters.get("access_data_exfiltration", 0))
+            stats_message += "\nCommand injection: " + str(attack_counters.get("access_command_injection", 0))
         else:
             stats_message += "\nNot generated."
 
         stats_message += "\n--------------- AUTH LOG ---------------"
         if gen_auth:
-            auth_counts = results[9]
-            auth_lines = results[10]
-            total_episodes = sum(int(auth_counts.get(k, 0) or 0) for k in ["auth_ssh_bruteforce", "auth_ssh_user_enum", "auth_sudo_bruteforce", "auth_privilege_escalation"])
-            stats_message += (
-                "\nSSH brute-force: "
-                + str(auth_counts.get("auth_ssh_bruteforce", 0))
+            ssh_bruteforce = int(attack_counters.get("auth_ssh_bruteforce", 0) or 0)
+            ssh_user_enum = int(attack_counters.get("auth_ssh_user_enum", 0) or 0)
+            sudo_bruteforce = int(attack_counters.get("auth_sudo_bruteforce", 0) or 0)
+            privilege_escalation = int(attack_counters.get("auth_privilege_escalation", 0) or 0)
+            total_episodes = (
+                ssh_bruteforce
+                + ssh_user_enum
+                + sudo_bruteforce
+                + privilege_escalation
             )
-            stats_message += (
-                "\nSSH user enumeration: "
-                + str(auth_counts.get("auth_ssh_user_enum", 0))
-            )
-            stats_message += (
-                "\nSudo auth failures: "
-                + str(auth_counts.get("auth_sudo_bruteforce", 0))
-            )
-            stats_message += (
-                "\nPrivilege escalation chain: "
-                + str(auth_counts.get("auth_privilege_escalation", 0))
-            )
+            stats_message += "\nSSH brute-force: " + str(ssh_bruteforce)
+            stats_message += "\nSSH user enumeration: " + str(ssh_user_enum)
+            stats_message += "\nSudo auth failures: " + str(sudo_bruteforce)
+            stats_message += "\nPrivilege escalation chain: " + str(privilege_escalation)
+            stats_message += "\nTotal auth attack episodes: " + str(total_episodes)
+            stats_message += "\nAuth lines written: " + str(auth_lines)
         else:
             stats_message += "\nNot generated."
 
@@ -176,9 +185,6 @@ class GenPage(QWidget):
             stats_message += "\nNot generated."
 
         self.true_attack_stats.setText(stats_message)
-
-        profile_counts = results[6]
-        log_source_counts = results[7]
         profile_message = "User distribution and access log line counts:"
         if gen_access:
             profile_message += (
@@ -242,19 +248,19 @@ class GenPage(QWidget):
         if had_auth:
             stats_message += (
                 "\nSSH brute-force: "
-                + str(tc.get(AUTH_CLASS_SSH_BRUTEFORCE, 0))
+                + str(tc.get("auth_ssh_bruteforce", 0))
             )
             stats_message += (
                 "\nSSH user enumeration: "
-                + str(tc.get(AUTH_CLASS_SSH_USER_ENUM, 0))
+                + str(tc.get("auth_ssh_user_enum", 0))
             )
             stats_message += (
                 "\nSudo auth failures: "
-                + str(tc.get(AUTH_CLASS_SUDO_BRUTEFORCE, 0))
+                + str(tc.get("auth_sudo_bruteforce", 0))
             )
             stats_message += (
                 "\nPrivilege escalation chain: "
-                + str(tc.get(AUTH_CLASS_PRIVLAGE_ESCALATION_CHAIN, 0))
+                + str(tc.get("auth_privilege_escalation", 0))
             )
         else:
             stats_message += "\nAuth log: no file found at default or configured path(s)."
@@ -315,6 +321,7 @@ class GenPage(QWidget):
             )
 
     def toggle_button(self, button: QPushButton):
+        """Toggle a log-type button state and update its visual style."""
         text = button.text()
         entry = self.log_types[text]
 

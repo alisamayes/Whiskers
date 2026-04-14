@@ -1,3 +1,15 @@
+"""Legacy threat detection helpers (deprecated).
+
+Use detectors in ``analysis/detectors`` for all new integrations.
+"""
+
+import warnings
+
+warnings.warn(
+    "analysis.threat_detection is deprecated; use analysis.detectors instead.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 
 class Mäuschen_Detective_Tools:

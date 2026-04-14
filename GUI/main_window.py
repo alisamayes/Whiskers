@@ -67,7 +67,7 @@ class ApplicationWindow(QMainWindow):
         self.setCentralWidget(self.tabs)
 
         self.home = HomePage()
-        self.gen = GenPage()
+        self.gen = GenPage(self.whiskers)
         self.detect = DetectionPage(self.whiskers)
         self.checking = CheckingPage(self.whiskers)
         self.reader = LogReaderPage(self.whiskers)

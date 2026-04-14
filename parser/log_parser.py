@@ -69,23 +69,31 @@ _SUDO_AUTH_FAIL = re.compile(
 _AUTH_ML_TRAILER = re.compile(r"\s+(\w+(?:_\w+)*)\s+(\d+)\s*$")
 
 
+def read_text_lines_safe(file_path: str, *, quiet: bool = True) -> tuple[list[str], str | None]:
+    """Read UTF-8 text lines safely and return ``(lines, error_message)``."""
+    try:
+        with open(file_path, encoding="utf-8", errors="replace") as f:
+            return f.readlines(), None
+    except OSError as e:
+        msg = f"Could not read {file_path}: {e}"
+        if not quiet:
+            print(msg)
+        return [], msg
+
+
 def _parse_syslog_timestamp(ts_raw: str) -> pd.Timestamp:
-    """Parse syslog timestamp string to a timezone-naive pandas Timestamp."""
+    """Parse syslog timestamp string to a timezone-aware UTC pandas Timestamp."""
     ts_raw = ts_raw.strip()
     if not ts_raw:
         return pd.NaT
     if ts_raw[0].isdigit() and "T" in ts_raw:
-        t = pd.to_datetime(ts_raw, utc=True, errors="coerce")
-        if pd.isna(t):
-            return t
-        # Drop tz so auth rows sort/concat with traditional syslog (naive) lines.
-        return pd.Timestamp(t.asm8)
+        return pd.to_datetime(ts_raw, utc=True, errors="coerce")
     try:
         dt = datetime.strptime(ts_raw, "%b %d %H:%M:%S")
         dt = dt.replace(year=datetime.now().year)
-        return pd.Timestamp(dt)
+        return pd.Timestamp(dt, tz="UTC")
     except ValueError:
-        return pd.to_datetime(ts_raw, errors="coerce")
+        return pd.to_datetime(ts_raw, utc=True, errors="coerce")
 
 
 def _auth_row(
@@ -261,48 +269,48 @@ def parse_auth_logs(file, source: str = "auth"):
     """
 
     rows: list[dict] = []
-    with open(file, encoding="utf-8", errors="replace") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
+    lines, _ = read_text_lines_safe(file)
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
 
-            classification = "normal"
-            count = 0
-            trailer_m = _AUTH_ML_TRAILER.search(line)
-            if trailer_m:
-                classification = trailer_m.group(1)
-                count = int(trailer_m.group(2))
-                line = line[: trailer_m.start()].rstrip()
+        classification = "normal"
+        count = 0
+        trailer_m = _AUTH_ML_TRAILER.search(line)
+        if trailer_m:
+            classification = trailer_m.group(1)
+            count = int(trailer_m.group(2))
+            line = line[: trailer_m.start()].rstrip()
 
-            msg = None
-            ts_raw = None
-            iso_m = _SYSLOG_ISO_PREFIX.match(line)
-            trad_m = _SYSLOG_TRAD_PREFIX.match(line)
-            if iso_m:
-                ts_raw, msg = iso_m.group(1), iso_m.group(2)
-            elif trad_m:
-                ts_raw, msg = trad_m.group(1), trad_m.group(2)
-            else:
-                continue
+        msg = None
+        ts_raw = None
+        iso_m = _SYSLOG_ISO_PREFIX.match(line)
+        trad_m = _SYSLOG_TRAD_PREFIX.match(line)
+        if iso_m:
+            ts_raw, msg = iso_m.group(1), iso_m.group(2)
+        elif trad_m:
+            ts_raw, msg = trad_m.group(1), trad_m.group(2)
+        else:
+            continue
 
-            ts = _parse_syslog_timestamp(ts_raw)
-            if pd.isna(ts):
-                continue
+        ts = _parse_syslog_timestamp(ts_raw)
+        if pd.isna(ts):
+            continue
 
-            row_dict = None
-            sshd_m = _SSHD_PAYLOAD.match(msg)
-            if sshd_m:
-                row_dict = _parse_sshd_body(sshd_m.group(1), ts, source)
-            else:
-                sudo_m = _SUDO_PAYLOAD.match(msg)
-                if sudo_m:
-                    row_dict = _parse_sudo_body(sudo_m.group(1), ts, source)
+        row_dict = None
+        sshd_m = _SSHD_PAYLOAD.match(msg)
+        if sshd_m:
+            row_dict = _parse_sshd_body(sshd_m.group(1), ts, source)
+        else:
+            sudo_m = _SUDO_PAYLOAD.match(msg)
+            if sudo_m:
+                row_dict = _parse_sudo_body(sudo_m.group(1), ts, source)
 
-            if row_dict is not None:
-                row_dict["classification"] = classification
-                row_dict["count"] = count
-                rows.append(row_dict)
+        if row_dict is not None:
+            row_dict["classification"] = classification
+            row_dict["count"] = count
+            rows.append(row_dict)
 
     df = pd.DataFrame(rows)
     if not df.empty:
@@ -314,39 +322,41 @@ def parse_auth_logs(file, source: str = "auth"):
 def parse_logs(file, source: str = "access", *, quiet: bool = False):
 
     logs = []
-    with open(file) as f:
+    lines, _ = read_text_lines_safe(file, quiet=quiet)
+    for line in lines:
 
-        for line in f:
+        match = re.search(ACCESS_PATTERN, line)
+        if not match and not quiet:
+            print("NO MATCH: ", line)
 
-            match = re.search(ACCESS_PATTERN, line)
-            if not match and not quiet:
-                print("NO MATCH: ", line)
+        if match:
 
-            if match:
+            ip, timestamp, method, path, status, bytes_sent, referer, agent, classification, count = match.groups()
 
-                ip, timestamp, method, path, status, bytes_sent, referer, agent, classification, count = match.groups()
-
-                logs.append({
-                    "ip": ip,
-                    "timestamp": timestamp,
-                    "method": method,
-                    "path": path,
-                    "status": int(status),
-                    "bytes_sent": int(bytes_sent),
-                    "referer": referer,
-                    "agent": agent,
-                    "classification": classification if classification is not None else "normal",
-                    "count": int(count) if count is not None else 0,
-                    "log_source": source,
-                })
+            logs.append({
+                "ip": ip,
+                "timestamp": timestamp,
+                "method": method,
+                "path": path,
+                "status": int(status),
+                "bytes_sent": int(bytes_sent),
+                "referer": referer,
+                "agent": agent,
+                "classification": classification if classification is not None else "normal",
+                "count": int(count) if count is not None else 0,
+                "log_source": source,
+            })
 
     df = pd.DataFrame(logs)
 
     if not df.empty:
         df["timestamp"] = pd.to_datetime(
             df["timestamp"],
-            format="%d/%b/%Y:%H:%M:%S %z"
+            format="%d/%b/%Y:%H:%M:%S %z",
+            utc=True,
+            errors="coerce",
         )
+        df = df.dropna(subset=["timestamp"])
         df = df.sort_values("timestamp")
 
     return df
@@ -362,38 +372,39 @@ def parse_firewall_logs(file, source: str = "firewall"):
     """
 
     rows = []
-    with open(file) as f:
-        for line in f:
-            m = re.search(FIREWALL_PATTERN, line)
-            if not m:
-                continue
+    lines, _ = read_text_lines_safe(file)
+    for line in lines:
+        m = re.search(FIREWALL_PATTERN, line)
+        if not m:
+            continue
 
-            ts, action, src_ip, dst_ip, dport, proto, bytes_sent = m.groups()
+        ts, action, src_ip, dst_ip, dport, proto, bytes_sent = m.groups()
 
-            rows.append(
-                {
-                    "ip": src_ip,
-                    "timestamp": ts,
-                    # map firewall fields into the generic schema
-                    "method": "FIREWALL",
-                    "path": f"{dst_ip}:{dport}/{proto.lower()}",
-                    "status": 0,
-                    "bytes_sent": int(bytes_sent),
-                    "agent": "firewall",
-                    "classification": action.lower(),  # allow / deny
-                    "count": 0,
-                    "log_source": source,
-                    "dst_ip": dst_ip,
-                    "dst_port": int(dport),
-                    "protocol": proto.lower(),
-                    "action": action.upper(),
-                }
-            )
+        rows.append(
+            {
+                "ip": src_ip,
+                "timestamp": ts,
+                # map firewall fields into the generic schema
+                "method": "FIREWALL",
+                "path": f"{dst_ip}:{dport}/{proto.lower()}",
+                "status": 0,
+                "bytes_sent": int(bytes_sent),
+                "agent": "firewall",
+                "classification": action.lower(),  # allow / deny
+                "count": 0,
+                "log_source": source,
+                "dst_ip": dst_ip,
+                "dst_port": int(dport),
+                "protocol": proto.lower(),
+                "action": action.upper(),
+            }
+        )
 
     df = pd.DataFrame(rows)
 
     if not df.empty:
-        df["timestamp"] = pd.to_datetime(df["timestamp"])
+        df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True, errors="coerce")
+        df = df.dropna(subset=["timestamp"])
         df = df.sort_values("timestamp")
 
 

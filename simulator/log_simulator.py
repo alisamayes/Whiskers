@@ -122,6 +122,7 @@ def generate_normal_request(current_time):
 
 
 def brute_force_attack(ip, current_time, count):
+    """Generate an access-log login brute-force burst from one IP."""
 
     logs = []
     attempts = random.randint(20, 40)  # Simulate 20-40 attempts to ensure we have at least one valid sequence
@@ -142,6 +143,7 @@ def brute_force_attack(ip, current_time, count):
 
 
 def directory_scan(ip, current_time, count):
+    """Generate a directory scanning sequence across common sensitive paths."""
 
     logs = []
 
@@ -159,6 +161,7 @@ def directory_scan(ip, current_time, count):
     return logs, current_time
 
 def request_flood(ip, current_time, count):
+    """Generate high-rate normal-path requests to simulate traffic flooding."""
 
     logs = []
 
@@ -178,6 +181,7 @@ def request_flood(ip, current_time, count):
 
 
 def sql_injection_attack(ip, current_time, count):
+    """Generate SQL injection probe requests with error-like status codes."""
 
     logs = []
 
@@ -198,6 +202,7 @@ def sql_injection_attack(ip, current_time, count):
 
 
 def exfiltration_attack(ip, current_time, count):
+    """Generate large-response requests that mimic data exfiltration."""
 
     logs = []
 
@@ -218,6 +223,7 @@ def exfiltration_attack(ip, current_time, count):
 
 
 def command_injection_attack(ip, current_time, count):
+    """Generate command-injection style request patterns against endpoints."""
 
     logs = []
     max = len(COMMAND_INJECTION_PATTERNS)
@@ -249,7 +255,14 @@ def generate_logs(
     gen_firewall: bool = False,
     ):
     """
-    Generate simulated logs.
+    Generate access/auth/firewall log files and return generation stats.
+
+    Returns a dictionary with keys:
+      * attack_counters
+      * profile_counts
+      * log_source_counts
+      * ips_that_attacked
+      * auth_line_count
     """
 
     if gen_access == False and gen_auth == False and gen_firewall == False:
@@ -407,21 +420,12 @@ def generate_logs(
 
     print("\n=============== Running Generation ===============\n")
     print(report_generation_stats(attack_counters))
-    return (
-        attack_counters["access_brute_force"],
-        attack_counters["access_directory_scan"],
-        attack_counters["access_request_flood"],
-        attack_counters["access_sql_injection"],
-        attack_counters["access_data_exfiltration"],
-        attack_counters["access_command_injection"],
-        profile_counts,
-        log_source_counts,
-        ips_that_attacked,
-        attack_counters["auth_ssh_bruteforce"],
-        attack_counters["auth_ssh_user_enum"],
-        attack_counters["auth_sudo_bruteforce"],
-        attack_counters["auth_privilege_escalation"],
-        auth_line_count,
-    )
+    return {
+        "attack_counters": attack_counters,
+        "profile_counts": profile_counts,
+        "log_source_counts": log_source_counts,
+        "ips_that_attacked": ips_that_attacked,
+        "auth_line_count": auth_line_count,
+    }
 
 

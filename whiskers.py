@@ -25,22 +25,19 @@ from simulator.log_simulator import generate_logs
 from simulator.log_manager import save_logs, log_shredder
 
 
-def _normalize_timestamps_naive_utc(df: pd.DataFrame) -> pd.DataFrame:
-    """Make ``timestamp`` timezone-naive (UTC wall time) for mixed log sources.
-
-    Access logs are tz-aware; auth and some firewall timestamps are naive.
-    Merging them without normalization causes sort/compare errors.
-    """
+def _normalize_timestamps_utc(df: pd.DataFrame) -> pd.DataFrame:
+    """Normalize ``timestamp`` to timezone-aware UTC for all log sources."""
     if df.empty or "timestamp" not in df.columns:
         return df
     out = df.copy()
     ts = pd.to_datetime(out["timestamp"], utc=True)
-    out["timestamp"] = ts.dt.tz_localize(None)
+    out["timestamp"] = ts
     return out
 
 
 class Whiskers:
     def __init__(self, args):
+        """Initialize runtime state, detectors, and process startup arguments."""
         # Avoid Windows console UnicodeEncodeError when printing banner art.
         # (PowerShell/terminal encoding can be cp1252; we prefer UTF-8 with replacement.)
         try:
@@ -60,7 +57,7 @@ class Whiskers:
         # default access log sources
         # each entry: {"name": str, "path": str, "format": str}
         self.access_logs = [
-            {"name": "access", "path": "data/access.log", "format": "whiskers_access"}
+            {"name": "access", "path": "data/access.log", "format": "access"}
         ]
         # optional firewall log sources
         self.firewall_logs = []
@@ -182,6 +179,7 @@ class Whiskers:
         self.process_commands(args)
 
     def show_help(self):
+        """Print CLI usage, flags, and auxiliary file-management commands."""
         help_text = """         Startup Usage: python main.py [options]
             Options:
             -h, --help                      Show this help message
@@ -224,7 +222,7 @@ class Whiskers:
 
         if frames:
             self.df = pd.concat(frames, ignore_index=True)
-            self.df = _normalize_timestamps_naive_utc(self.df)
+            self.df = _normalize_timestamps_utc(self.df)
             self.df = self.df.sort_values("timestamp")
         else:
             self.df = pd.DataFrame()
@@ -265,6 +263,46 @@ class Whiskers:
             ml_summary=ml_summary,
         ))
 
+    def run_generation(
+        self,
+        *,
+        size: int | None = None,
+        users: int = 100,
+        gen_access: bool | None = None,
+        gen_auth: bool | None = None,
+        gen_firewall: bool | None = None,
+    ) -> dict:
+        """Run simulator generation and synchronize engine state from one result object."""
+        result = generate_logs(
+            self.size if size is None else size,
+            users,
+            self.gen_access if gen_access is None else gen_access,
+            self.gen_auth if gen_auth is None else gen_auth,
+            self.gen_firewall if gen_firewall is None else gen_firewall,
+        )
+        self.true_attack_counts = result["attack_counters"].copy()
+        self.profile_counts = result["profile_counts"]
+        self.log_source_counts = result["log_source_counts"]
+        self.ips_that_attacked = result["ips_that_attacked"]
+        self.auth_line_count = int(result["auth_line_count"])
+        return result
+
+    def run_detection_pipeline(self) -> str:
+        """Prepare data, refresh true counts, and execute all detectors."""
+        self.prepare_dataframe()
+        self.update_true_attack_counts_from_df()
+        return self.run_detection_models()
+
+    def run_check_report(self) -> str:
+        """Build and return the check report from current engine state."""
+        return report_check_stats(
+            self.true_attack_counts,
+            self.detected_attack_counts,
+            self.ips_that_attacked,
+            self.profile_counts,
+            self.log_source_counts,
+        )
+
 
     def update_true_attack_counts_from_df(self):
         """Update `self.true_attack_counts` from the parsed log dataframe.
@@ -287,6 +325,7 @@ class Whiskers:
 
 
     def process_commands(self, command):
+        """Parse command tokens, execute actions, and update Whiskers state."""
         # First pass: parse all arguments
         i = 0
         while i < len(command):
@@ -339,7 +378,7 @@ class Whiskers:
                 try:
                     path = command[i + 1]
                     self.access_logs = [
-                        {"name": "access", "path": path, "format": "whiskers_access"}
+                        {"name": "access", "path": path, "format": "access"}
                     ]
                     i += 1
                 except IndexError:
@@ -349,7 +388,7 @@ class Whiskers:
                 try:
                     path = command[i + 1]
                     self.access_logs.append(
-                        {"name": "access", "path": path, "format": "whiskers_access"}
+                        {"name": "access", "path": path, "format": "access"}
                     )
                     i += 1
                 except IndexError:
@@ -359,7 +398,7 @@ class Whiskers:
                 try:
                     path = command[i + 1]
                     self.firewall_logs.append(
-                        {"name": "firewall", "path": path, "format": "whiskers_firewall"}
+                        {"name": "firewall", "path": path, "format": "firewall"}
                     )
                     i += 1
                 except IndexError:
@@ -369,7 +408,7 @@ class Whiskers:
                 try:
                     path = command[i + 1]
                     self.auth_logs.append(
-                        {"name": "auth", "path": path, "format": "linux_auth"}
+                        {"name": "auth", "path": path, "format": "auth"}
                     )
                     i += 1
                 except IndexError:
@@ -392,21 +431,13 @@ class Whiskers:
 
         # Second pass: execute actions after all arguments are parsed
         if self.gen_new:
-            results = generate_logs(
-                self.size,
-                100,
-                self.gen_access,
-                self.gen_auth,
-                self.gen_firewall
+            self.run_generation(
+                size=self.size,
+                users=100,
+                gen_access=self.gen_access,
+                gen_auth=self.gen_auth,
+                gen_firewall=self.gen_firewall,
             )
-            self.profile_counts = results[6]
-            self.log_source_counts = results[7]
-            self.ips_that_attacked = results[8]
-            self.auth_ssh_bruteforce_count = results[9]
-            self.auth_ssh_user_enum_count = results[10]
-            self.auth_sudo_bruteforce_count = results[11]
-            self.auth_privilege_escalation_count = results[12]
-            self.auth_line_count = results[13]
             self.gen_new = False
             self.gen_access = False
             self.gen_auth = False
@@ -415,17 +446,16 @@ class Whiskers:
         
         if self.run_detection:
             print("\n=============== Running Detection ===============\n")
-            self.prepare_dataframe()
-            self.update_true_attack_counts_from_df()
-            print(self.run_detection_models())
+            print(self.run_detection_pipeline())
             self.run_detection = False
 
         if self.check:
             print("\n=============== Running Checking ===============\n")
-            print(report_check_stats(self.true_attack_counts, self.detected_attack_counts, self.ips_that_attacked, self.profile_counts, self.log_source_counts))
+            print(self.run_check_report())
             self.check = False
 
     def open_ui(self) -> None:
+        """Open the Qt UI, creating the GUI thread if needed."""
         with self._gui_lock:
             need_start = self._gui_thread is None or not self._gui_thread.is_alive()
             if need_start:
@@ -448,6 +478,7 @@ class Whiskers:
             print("Whiskers UI is not available.")
 
     def _run_gui_thread(self) -> None:
+        """Run the Qt event loop in a dedicated thread."""
         from PyQt6.QtWidgets import QApplication
         from GUI.main_window import ApplicationWindow, UiBridge, load_window_icon
 
@@ -478,6 +509,7 @@ class Whiskers:
         self._ui_bridge = UiBridge()
 
         def bring_to_front() -> None:
+            """Show the existing window and request focus."""
             self._gui_window.show()
             self._gui_window.raise_()
             self._gui_window.activateWindow()
@@ -489,6 +521,7 @@ class Whiskers:
         self._qapp.exec()
 
     def await_input(self):
+        """Run an interactive command loop for terminal usage."""
         while True:
             user_input = input("Awaiting task for Whiskers...\n").lower()
             command = user_input.strip().split()

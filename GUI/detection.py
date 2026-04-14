@@ -89,6 +89,7 @@ class DetectionPage(QWidget):
 
         
     def toggle_button(self, button: QPushButton):
+        """Toggle a source button and propagate state to the Whiskers engine."""
         text = button.text()
         entry = self.log_types[text]
 
@@ -102,6 +103,7 @@ class DetectionPage(QWidget):
         self.apply_log_toggle(text, entry["state"])
 
     def apply_log_toggle(self, log_type: str, enabled: bool) -> None:
+        """Enable or disable one configured log source on the engine."""
         engine = getattr(self.window(), "whiskers", None) or self.whiskers
         if engine is None:
             return
@@ -109,15 +111,15 @@ class DetectionPage(QWidget):
         sources = {
             "Access": (
                 "access_logs",
-                {"name": "access", "path": "data/access.log", "format": "whiskers_access"},
+                {"name": "access", "path": "data/access.log", "format": "access"},
             ),
             "Auth": (
                 "auth_logs",
-                {"name": "auth", "path": "data/auth.log", "format": "whiskers_auth"},
+                {"name": "auth", "path": "data/auth.log", "format": "auth"},
             ),
             "Firewall": (
                 "firewall_logs",
-                {"name": "firewall", "path": "data/firewall.log", "format": "whiskers_firewall"},
+                {"name": "firewall", "path": "data/firewall.log", "format": "firewall"},
             ),
         }
 
@@ -130,6 +132,7 @@ class DetectionPage(QWidget):
 
 
     def detect(self):
+        """Run parse + true-count refresh + detection for selected sources."""
         # For now, run the same pipeline as CLI `-d/--detect` against the current
         # configured log sources on the Whiskers instance.
         w = getattr(self.window(), "whiskers", None)
@@ -138,13 +141,12 @@ class DetectionPage(QWidget):
             self.actor_stats.setText("")
             return
 
-        w.prepare_dataframe()
-        w.update_true_attack_counts_from_df()
-        w.run_detection_models()
+        w.run_detection_pipeline()
 
         self.update_stats(w)
 
     def update_stats(self, whiskers_engine):
+        """Render detected and true attack counts from engine state."""
         detected = getattr(whiskers_engine, "detected_attack_counts", {})
         true_counts = getattr(whiskers_engine, "true_attack_counts", {})
 

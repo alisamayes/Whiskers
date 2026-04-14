@@ -15,6 +15,7 @@ from analysis.stats import report_check_stats
 
 class CheckingPage(QWidget):
     def __init__(self, whiskers_agent, parent=None):
+        """Build the CHECK page UI and bind actions to the Whiskers engine."""
         super().__init__(parent)
 
         self.whiskers = whiskers_agent
@@ -56,13 +57,7 @@ class CheckingPage(QWidget):
             self.report_stats.setText(f"Error while reading true counts from dataframe:\n{e}")
             self.info_stats.setText("")
             return
-        report = report_check_stats(
-            w.true_attack_counts,
-            w.detected_attack_counts,
-            w.ips_that_attacked,
-            w.profile_counts,
-            w.log_source_counts,
-        )
+        report = w.run_check_report()
         self.report_stats.setText(report)
         n = int(w.df.shape[0])
         self.info_stats.setText(
@@ -70,6 +65,7 @@ class CheckingPage(QWidget):
         )
 
     def run_check(self) -> None:
+        """Render check-report output from current in-memory detection snapshot."""
         w = getattr(self.window(), "whiskers", None)
         if w is None:
             self.report_stats.setText(
@@ -92,13 +88,7 @@ class CheckingPage(QWidget):
             self.info_stats.setText("")
             return
 
-        report = report_check_stats(
-            w.true_attack_counts,
-            w.detected_attack_counts,
-            w.ips_that_attacked,
-            w.profile_counts,
-            w.log_source_counts,
-        )
+        report = w.run_check_report()
         self.report_stats.setText(report)
 
         n = int(w.df.shape[0])

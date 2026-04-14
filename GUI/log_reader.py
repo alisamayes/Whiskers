@@ -17,6 +17,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import QStringListModel
 
 from GUI.config import active_dark_green
+from parser.log_parser import read_text_lines_safe
 
 # Tight vertical spacing for log lines (QListView default padding is roomy).
 _LOG_VIEW_STYLE = """
@@ -129,8 +130,10 @@ class LogReaderPage(QWidget):
 
         all_lines = []
         for log_file in log_files:
-            with open(log_file, "r") as file:
-                lines = file.readlines()
-                all_lines.extend(lines)
+            lines, error = read_text_lines_safe(log_file)
+            if error:
+                all_lines.append(f"[error] {error}\n")
+                continue
+            all_lines.extend(lines)
 
         self._log_model.setStringList(all_lines)
