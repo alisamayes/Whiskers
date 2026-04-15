@@ -1,0 +1,8 @@
+# Bytecode / caches (any directory)
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Simulated / generated logs
+data/

@@ -13,7 +13,7 @@ from PyQt6.QtWidgets import (
     QPushButton,
     QListView
 )
-
+from typing import TypedDict
 from PyQt6.QtCore import QStringListModel
 
 from GUI.config import active_dark_green
@@ -32,6 +32,10 @@ _LOG_VIEW_STYLE = """
     }
 """
 
+class _LogToggleEntry(TypedDict):
+    state: bool
+    button: QPushButton
+
 
 class LogReaderPage(QWidget):
     def __init__(self, whiskers_agent, parent = None):
@@ -46,7 +50,7 @@ class LogReaderPage(QWidget):
         self.whiskers = whiskers_agent
         #Pyqt6 widgets
 
-        self.layout = QVBoxLayout()
+        self.main_layout = QVBoxLayout()
         # ============================================
 
         self.control_box = QVBoxLayout()
@@ -81,15 +85,15 @@ class LogReaderPage(QWidget):
         self.log_view.setModel(self._log_model)
         self.reader_box.addWidget(self.log_view, stretch=1)
 
-        self.layout.addLayout(self.control_box)
-        self.layout.addLayout(self.reader_box, stretch=1)
-        self.setLayout(self.layout)
+        self.main_layout.addLayout(self.control_box)
+        self.main_layout.addLayout(self.reader_box, stretch=1)
+        self.setLayout(self.main_layout)
 
         #============================================
 
         # Class variables
 
-        self.log_types = {
+        self.log_types: dict[str, _LogToggleEntry] = {
             "Access" : {"state" :False , "button" : self.access_log_button},
             "Auth" : {"state" :False , "button" : self.auth_log_button},
             "Firewall": {"state" :False , "button" : self.firewall_log_button},
@@ -104,10 +108,11 @@ class LogReaderPage(QWidget):
 
 
         entry["state"] = not entry["state"]
+        button_ref = entry["button"]
         if entry["state"]:
-            entry["button"].setStyleSheet(f"color: {active_dark_green};")
+            button_ref.setStyleSheet(f"color: {active_dark_green};")
         else:
-            entry["button"].setStyleSheet("")
+            button_ref.setStyleSheet("")
 
     def load_log_files(self):
         """ 

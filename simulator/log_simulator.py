@@ -298,7 +298,7 @@ def generate_logs(
         "compromised": 0,
     }
 
-    used_ips = []
+    used_ips: list[str] = []
     ips_that_attacked = {}
 
     os.makedirs("data", exist_ok=True)
@@ -331,6 +331,7 @@ def generate_logs(
 
         for i in range(size):
             if gen_auth:
+                assert auth_f is not None
                 # Occasional realistic auth attacks (attacker IPs); otherwise benign bursts.
                 if random.random() < 0.016:
                     kind = random.choice(["auth_ssh_bruteforce", "auth_ssh_user_enum", "auth_sudo_bruteforce", "auth_privilege_escalation"])
@@ -361,6 +362,7 @@ def generate_logs(
 
             
             if gen_access:
+                assert f is not None
 
                 user = random.choice(user_list)
                 profile = user.profile

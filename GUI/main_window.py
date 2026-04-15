@@ -9,7 +9,7 @@ from PyQt6.QtWidgets import (
     QSizePolicy,
     QSystemTrayIcon,
 )
-from PyQt6.QtGui import QPixmap, QFont, QResizeEvent, QShowEvent, QIcon
+from PyQt6.QtGui import QPixmap, QFont, QResizeEvent, QShowEvent, QIcon, QCloseEvent
 from PyQt6.QtCore import Qt, QObject, pyqtSignal
 
 from GUI.generation import GenPage
@@ -78,7 +78,9 @@ class ApplicationWindow(QMainWindow):
         self.tabs.addTab(self.checking, "Checking")
         self.tabs.addTab(self.reader, "Log Reader")
 
-    def closeEvent(self, event):
+    def closeEvent(self, event: QCloseEvent | None) -> None:
+        if event is None:
+            return
         if self.close_hides_only:
             event.ignore()
             self.hide()
@@ -129,11 +131,11 @@ class HomePage(QWidget):
         layout.addWidget(self.title_label, stretch=0, alignment=Qt.AlignmentFlag.AlignHCenter)
         layout.addWidget(self.subtitle_label, stretch=0, alignment=Qt.AlignmentFlag.AlignHCenter)
 
-    def showEvent(self, event: QShowEvent) -> None:
+    def showEvent(self, event: QShowEvent | None) -> None:
         super().showEvent(event)
         self._scale_logo_to_label()
 
-    def resizeEvent(self, event: QResizeEvent) -> None:
+    def resizeEvent(self, event: QResizeEvent | None) -> None:
         super().resizeEvent(event)
         self._scale_logo_to_label()
 

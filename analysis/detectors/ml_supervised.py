@@ -25,7 +25,7 @@ class SupervisedIPClassifierDetector(BaseDetector):
     ):
         super().__init__(threshold=0)
         self.model_path = model_path
-        self.threshold = threshold
+        self.score_threshold = threshold
         self.model = None
 
         if os.path.exists(self.model_path):
@@ -52,7 +52,7 @@ class SupervisedIPClassifierDetector(BaseDetector):
         if hasattr(self.model, "predict_proba"):
             proba = self.model.predict_proba(features)[:, 1]
             for ip, p in zip(features.index, proba):
-                if p >= self.threshold:
+                if p >= self.score_threshold:
                     alerts.append(
                         ThreatAlert(
                             ip=str(ip),

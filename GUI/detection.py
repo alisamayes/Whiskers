@@ -11,16 +11,15 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QPushButton,
-    QLineEdit,
 )
+from typing import TypedDict
 
-from simulator.auth_log_simulator import (
-    auth_ssh_bruteforce_attack,
-    auth_ssh_user_enum_attack,
-    auth_sudo_bruteforce_attack,
-    auth_privilege_escalation_attack,
-)
 from GUI.config import active_dark_green
+
+
+class _LogToggleEntry(TypedDict):
+    state: bool
+    button: QPushButton
 
 
 class DetectionPage(QWidget):
@@ -36,7 +35,7 @@ class DetectionPage(QWidget):
         self.whiskers = whiskers_agent
         #Pyqt6 widgets
 
-        self.layout = QVBoxLayout()
+        self.main_layout = QVBoxLayout()
         # ============================================
 
         self.detect_box = QVBoxLayout()
@@ -71,15 +70,15 @@ class DetectionPage(QWidget):
         self.true_attack_stats = QLabel("")
         self.stats_box.addWidget(self.true_attack_stats)
 
-        self.layout.addLayout(self.detect_box)
-        self.layout.addLayout(self.stats_box)
-        self.setLayout(self.layout)
+        self.main_layout.addLayout(self.detect_box)
+        self.main_layout.addLayout(self.stats_box)
+        self.setLayout(self.main_layout)
 
         #============================================
 
         # Class variables
 
-        self.log_types = {
+        self.log_types: dict[str, _LogToggleEntry] = {
             "Access" : {"state" :False , "button" : self.access_log_button},
             "Auth" : {"state" :False , "button" : self.auth_log_button},
             "Firewall": {"state" :False , "button" : self.firewall_log_button},
@@ -138,7 +137,6 @@ class DetectionPage(QWidget):
         w = getattr(self.window(), "whiskers", None)
         if w is None:
             self.true_attack_stats.setText("Error: Whiskers engine not attached to the main window.")
-            self.actor_stats.setText("")
             return
 
         w.run_detection_pipeline()

@@ -26,7 +26,7 @@ from simulator.log_simulator import generate_logs
 from simulator.log_manager import save_logs, log_shredder
 
 
-def _normalize_timestamps_utc(df: pd.DataFrame) -> pd.DataFrame:
+def normalize_timestamps_utc(df: pd.DataFrame) -> pd.DataFrame:
     """Normalize ``timestamp`` to timezone-aware UTC for all log sources."""
     if df.empty or "timestamp" not in df.columns:
         return df
@@ -170,12 +170,12 @@ class Whiskers:
         print(mouse_art_1[0])
         print("Generating new Whiskers Agent...")
 
-        self._gui_lock = threading.Lock()
-        self._gui_ready = threading.Event()
-        self._gui_thread: Optional[threading.Thread] = None
-        self._qapp = None
-        self._gui_window = None
-        self._ui_bridge = None
+        self.gui_lock = threading.Lock()
+        self.gui_ready = threading.Event()
+        self.gui_thread: Optional[threading.Thread] = None
+        self.app = None
+        self.gui_window = None
+        self.ui_bridge = None
 
         # Sort out any additional arguments
         self.process_commands(args)
@@ -224,7 +224,7 @@ class Whiskers:
 
         if frames:
             self.df = pd.concat(frames, ignore_index=True)
-            self.df = _normalize_timestamps_utc(self.df)
+            self.df = normalize_timestamps_utc(self.df)
             self.df = self.df.sort_values("timestamp")
         else:
             self.df = pd.DataFrame()
@@ -234,15 +234,7 @@ class Whiskers:
             + len(self.firewall_logs)
             + len(self.auth_logs)
         )
-        #print("\n=============== Parsing Logs ===============\n")
-        #print(f"Parsed {self.df.shape[0]} lines from {total_files} log file(s).")
-
-        # create features for later use
         self.features = feature_engineering.basic_aggregate_features(self.df)
-        #if self.mode == "verbose":
-            #print("\n--- feature matrix (by IP) ---")
-            #print(self.features)
-            #print("--- end features ---\n")
 
     def run_detection_models(self):
         """Execute all detectors against the current dataframe and print results."""
@@ -470,28 +462,28 @@ class Whiskers:
 
     def open_ui(self) -> None:
         """Open the Qt UI, creating the GUI thread if needed."""
-        with self._gui_lock:
-            need_start = self._gui_thread is None or not self._gui_thread.is_alive()
+        with self.gui_lock:
+            need_start = self.gui_thread is None or not self.gui_thread.is_alive()
             if need_start:
-                self._gui_ready.clear()
-                self._gui_thread = threading.Thread(
-                    target=self._run_gui_thread,
+                self.gui_ready.clear()
+                self.gui_thread = threading.Thread(
+                    target=self.run_gui_thread,
                     daemon=True,
                     name="WhiskersQt",
                 )
-                self._gui_thread.start()
-                if not self._gui_ready.wait(timeout=30.0):
+                self.gui_thread.start()
+                if not self.gui_ready.wait(timeout=30.0):
                     print("Whiskers UI failed to start (timed out).")
                     return
                 return
-            bridge = self._ui_bridge
+            bridge = self.ui_bridge
 
         if bridge is not None:
             bridge.show_ui.emit()
         else:
             print("Whiskers UI is not available.")
 
-    def _run_gui_thread(self) -> None:
+    def run_gui_thread(self) -> None:
         """Run the Qt event loop in a dedicated thread."""
         from PyQt6.QtWidgets import QApplication
         from GUI.main_window import ApplicationWindow, UiBridge, load_window_icon
@@ -508,31 +500,33 @@ class Whiskers:
                 pass
 
         try:
-            self._qapp = QApplication([sys.argv[0]])
+            self.app = QApplication([sys.argv[0]])
         except Exception as e:
             print(f"Whiskers UI: could not start ({e})")
-            self._gui_ready.set()
+            self.gui_ready.set()
             return
 
-        self._qapp.setQuitOnLastWindowClosed(False)
-        self._qapp.setWindowIcon(load_window_icon())
-        self._gui_window = ApplicationWindow(self)
-        self._gui_window.close_hides_only = True
-        self._gui_window.whiskers = self
+        self.app.setQuitOnLastWindowClosed(False)
+        self.app.setWindowIcon(load_window_icon())
+        self.gui_window = ApplicationWindow(self)
+        window = self.gui_window
+        window.close_hides_only = True
+        window.whiskers = self
+        
 
-        self._ui_bridge = UiBridge()
+        self.ui_bridge = UiBridge()
 
         def bring_to_front() -> None:
             """Show the existing window and request focus."""
-            self._gui_window.show()
-            self._gui_window.raise_()
-            self._gui_window.activateWindow()
+            window.show()
+            window.raise_()
+            window.activateWindow()
 
-        self._ui_bridge.show_ui.connect(bring_to_front)
+        self.ui_bridge.show_ui.connect(bring_to_front)
 
-        self._gui_window.show()
-        self._gui_ready.set()
-        self._qapp.exec()
+        window.show()
+        self.gui_ready.set()
+        self.app.exec()
 
     def await_input(self):
         """Run an interactive command loop for terminal usage."""

@@ -20,7 +20,7 @@ class CheckingPage(QWidget):
 
         self.whiskers = whiskers_agent
 
-        self.layout = QVBoxLayout()
+        self.main_layout = QVBoxLayout()
 
         self.check_box = QVBoxLayout()
 
@@ -39,9 +39,9 @@ class CheckingPage(QWidget):
         self.stats_box.addWidget(self.info_label)
         self.stats_box.addWidget(self.info_stats)
 
-        self.layout.addLayout(self.check_box)
-        self.layout.addLayout(self.stats_box)
-        self.setLayout(self.layout)
+        self.main_layout.addLayout(self.check_box)
+        self.main_layout.addLayout(self.stats_box)
+        self.setLayout(self.main_layout)
 
     def refresh_from_engine(self, w) -> None:
         """Show check-style summary from current engine state (no detection re-run)."""

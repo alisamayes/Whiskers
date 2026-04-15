@@ -11,8 +11,14 @@ from PyQt6.QtWidgets import (
     QPushButton,
     QLineEdit
 )
+from typing import TypedDict
 from simulator.log_simulator import generate_logs
 from GUI.config import active_dark_green
+
+
+class _LogToggleEntry(TypedDict):
+    state: bool
+    button: QPushButton
 
 
 class GenPage(QWidget):
@@ -27,7 +33,7 @@ class GenPage(QWidget):
 
         #Pyqt6 widgets
 
-        self.layout = QVBoxLayout()
+        self.main_layout = QVBoxLayout()
         # ============================================
 
         self.gen_box = QVBoxLayout()
@@ -79,15 +85,15 @@ class GenPage(QWidget):
         self.stats_box.addWidget(self.actor_stats)
 
 
-        self.layout.addLayout(self.gen_box)
-        self.layout.addLayout(self.stats_box)
-        self.setLayout(self.layout)
+        self.main_layout.addLayout(self.gen_box)
+        self.main_layout.addLayout(self.stats_box)
+        self.setLayout(self.main_layout)
 
         #============================================
 
         # Class variables
 
-        self.log_types = {
+        self.log_types: dict[str, _LogToggleEntry] = {
             "Access" : {"state" :False , "button" : self.access_log_button},
             "Auth" : {"state" :False , "button" : self.auth_log_button},
             "Firewall": {"state" :False , "button" : self.firewall_log_button},

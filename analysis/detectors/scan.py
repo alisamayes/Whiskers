@@ -34,7 +34,7 @@ class ScanDetector(BaseDetector):
         Returns:
             List of ThreatAlert objects.
         """
-        alerts = []
+        alerts: List[ThreatAlert] = []
 
         # Filter for 404 responses (no use of classification/count)
         failed_requests = df[df["status"] == 404].copy()

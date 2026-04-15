@@ -30,11 +30,11 @@ def report_detection_stats(all_alerts, detected_attack_counts, mode, *, ml_summa
     lines: list[str] = [""]
     if mode == "verbose":
             lines.append("--- threat detections ---")
-            by_kind = {}
+            verbose_by_kind: dict[str, list[object]] = {}
             for alert in all_alerts:
-                by_kind.setdefault(alert.kind, []).append(alert)
+                verbose_by_kind.setdefault(alert.kind, []).append(alert)
 
-            for kind, alerts_of_kind in by_kind.items():
+            for kind, alerts_of_kind in verbose_by_kind.items():
                 lines.append(f"\n{kind.upper()} ({len(alerts_of_kind)} total):")
                 detected_attack_counts[kind] = len(alerts_of_kind)
                 for alert in alerts_of_kind:
@@ -42,10 +42,10 @@ def report_detection_stats(all_alerts, detected_attack_counts, mode, *, ml_summa
             lines.append("--- end detections ---\n")
     else:
         # Summary view
-        by_kind = {}
+        summary_by_kind: dict[str, int] = {}
         for alert in all_alerts:
-            by_kind[alert.kind] = by_kind.get(alert.kind, 0) + 1
-        for kind, count in by_kind.items():
+            summary_by_kind[alert.kind] = summary_by_kind.get(alert.kind, 0) + 1
+        for kind, count in summary_by_kind.items():
             if kind == "ml_anomaly":
                 lines.append(f"ML isolation forest identified {count} anomalous/ hostile IPs")
             else:

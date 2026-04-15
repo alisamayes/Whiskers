@@ -17,6 +17,7 @@ Typical usage pattern in a Python REPL or notebook:
 
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report, accuracy_score

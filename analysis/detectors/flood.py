@@ -34,7 +34,7 @@ class FloodDetector(BaseDetector):
         Returns:
             List of ThreatAlert objects.
         """
-        alerts = []
+        alerts: List[ThreatAlert] = []
 
         if df.empty:
             return alerts

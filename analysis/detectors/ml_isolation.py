@@ -8,7 +8,7 @@ outlier (IF) and shows attack-like behaviour (scanning, errors, burst rate, etc.
 
 from __future__ import annotations
 
-from typing import List
+from typing import Any, List
 
 import numpy as np
 import pandas as pd
@@ -108,7 +108,7 @@ class IsolationForestDetector(BaseDetector):
         self.severe_behavioral_risk = severe_behavioral_risk
         self.min_ips_for_forest = min_ips_for_forest
         self.forest_contamination = forest_contamination
-        self.last_run_summary = None
+        self.last_run_summary: dict[str, Any] | None = None
 
     def detect(self, df: pd.DataFrame) -> List[ThreatAlert]:
         alerts: List[ThreatAlert] = []
