@@ -60,7 +60,7 @@ class User:
 
     def perform_attack(self, attack_type, current_time, global_counters):
         """Perform an attack and update counters."""
-        from simulator.log_simulator import (
+        from simulator.access_log_simulator import (
             brute_force_attack, directory_scan, request_flood,
             sql_injection_attack, exfiltration_attack, command_injection_attack
         )
@@ -89,7 +89,7 @@ class User:
 
     def perform_normal_traffic(self, current_time):
         """Generate normal traffic for this user and advance time."""
-        from simulator.log_simulator import generate_normal_request
+        from simulator.access_log_simulator import generate_normal_request
         log, new_time = generate_normal_request(current_time)
         return [log], new_time
 

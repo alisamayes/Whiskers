@@ -149,17 +149,30 @@ class GenPage(QWidget):
         attack_counters = results["attack_counters"]
         profile_counts = results["profile_counts"]
         log_source_counts = results["log_source_counts"]
+        auth_log_source_counts = results.get("auth_log_source_counts", {})
+        access_instances = int(results.get("access_instance_count", 0) or 0)
+        access_lines = int(results.get("access_line_count", 0) or 0)
+        auth_instances = int(results.get("auth_instance_count", 0) or 0)
         auth_lines = int(results["auth_line_count"] or 0)
         stats_message = ""
 
         stats_message += "\n--------------- ACCESS LOG ---------------"
         if gen_access:
+            total_access_attacks = (
+                attack_counters.get("access_brute_force", 0)
+                + attack_counters.get("access_directory_scan", 0)
+                + attack_counters.get("access_request_flood", 0)
+                + attack_counters.get("access_sql_injection", 0)
+                + attack_counters.get("access_data_exfiltration", 0)
+                + attack_counters.get("access_command_injection", 0)
+            )
             stats_message += "\nBrute-force: " + str(attack_counters.get("access_brute_force", 0))
             stats_message += "\nDirectory scan: " + str(attack_counters.get("access_directory_scan", 0))
             stats_message += "\nRequest flood: " + str(attack_counters.get("access_request_flood", 0))
             stats_message += "\nSQL injection: " + str(attack_counters.get("access_sql_injection", 0))
             stats_message += "\nData exfiltration: " + str(attack_counters.get("access_data_exfiltration", 0))
             stats_message += "\nCommand injection: " + str(attack_counters.get("access_command_injection", 0))
+            stats_message += "\nTotal attacks detected in access log: " + str(total_access_attacks)
         else:
             stats_message += "\nNot generated."
 
@@ -169,7 +182,7 @@ class GenPage(QWidget):
             ssh_user_enum = int(attack_counters.get("auth_ssh_user_enum", 0) or 0)
             sudo_bruteforce = int(attack_counters.get("auth_sudo_bruteforce", 0) or 0)
             privilege_escalation = int(attack_counters.get("auth_privilege_escalation", 0) or 0)
-            total_episodes = (
+            total_auth_attacks = (
                 ssh_bruteforce
                 + ssh_user_enum
                 + sudo_bruteforce
@@ -179,8 +192,7 @@ class GenPage(QWidget):
             stats_message += "\nSSH user enumeration: " + str(ssh_user_enum)
             stats_message += "\nSudo auth failures: " + str(sudo_bruteforce)
             stats_message += "\nPrivilege escalation chain: " + str(privilege_escalation)
-            stats_message += "\nTotal auth attack episodes: " + str(total_episodes)
-            stats_message += "\nAuth lines written: " + str(auth_lines)
+            stats_message += "\nTotal attacks detected in auth log: " + str(total_auth_attacks)
         else:
             stats_message += "\nNot generated."
 
@@ -191,44 +203,38 @@ class GenPage(QWidget):
             stats_message += "\nNot generated."
 
         self.true_attack_stats.setText(stats_message)
-        profile_message = "User distribution and access log line counts:"
+        profile_message = "Generated file totals:"
         if gen_access:
             profile_message += (
-                "\nNormal users: "
-                + str(profile_counts["normal"])
-                + " users, "
-                + str(log_source_counts["normal"])
-                + " access lines"
+                "\nAccess log: "
+                + str(access_instances)
+                + " instances, "
+                + str(access_lines)
+                + " lines"
             )
+        if gen_auth:
             profile_message += (
-                "\nScanner: "
-                + str(profile_counts["scanner"])
-                + " users, "
-                + str(log_source_counts["scanner"])
-                + " access lines"
+                "\nAuth log: "
+                + str(auth_instances)
+                + " instances, "
+                + str(auth_lines)
+                + " lines"
             )
+        if gen_firewall:
+            profile_message += "\nFirewall log: generated (instance/line totals not yet implemented)"
+
+        profile_message += "\n\nUser distribution and generated log line counts by actor:"
+        roles = ("normal", "scanner", "attacker", "compromised")
+        for role in roles:
+            users_count = int(profile_counts.get(role, 0) or 0)
+            access_count = int(log_source_counts.get(role, 0) or 0) if gen_access else 0
+            auth_count = int(auth_log_source_counts.get(role, 0) or 0) if gen_auth else 0
+            label = role.capitalize()
             profile_message += (
-                "\nAttacker: "
-                + str(profile_counts["attacker"])
-                + " users, "
-                + str(log_source_counts["attacker"])
-                + " access lines"
+                f"\n{label}: {users_count} users, {access_count} access lines, {auth_count} auth lines"
             )
-            profile_message += (
-                "\nCompromised: "
-                + str(profile_counts["compromised"])
-                + " users, "
-                + str(log_source_counts["compromised"])
-                + " access lines\n"
-            )
-        else:
-            profile_message += (
-                "\n(No access log — actor stats reflect user pool only.)\n"
-            )
-            profile_message += "\nNormal: " + str(profile_counts["normal"]) + " users"
-            profile_message += "\nScanner: " + str(profile_counts["scanner"]) + " users"
-            profile_message += "\nAttacker: " + str(profile_counts["attacker"]) + " users"
-            profile_message += "\nCompromised: " + str(profile_counts["compromised"]) + " users\n"
+
+        profile_message += "\n\n(Actor rows show generated lines by actor for each log type.)"
 
         self.actor_stats.setText(profile_message)
 

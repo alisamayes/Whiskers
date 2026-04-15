@@ -66,11 +66,11 @@ def format_trad_syslog_ts(dt: datetime.datetime) -> str:
     return f"{dt.strftime('%b')} {dt.day:>2} {dt.strftime('%H:%M:%S')}"
 
 
-def _random_sshd_pid() -> int:
+def random_sshd_pid() -> int:
     return random.randint(900, 65520)
 
 
-def _random_ssh_port() -> int:
+def random_ssh_port() -> int:
     return random.choice([22, 22, 22, 22, 2222])
 
 
@@ -93,8 +93,8 @@ def generate_auth_normal_event(
     host = AUTH_HOSTNAME
     ip = random.choice(IPS_NORMAL)
     user = random.choice(AUTH_USERS)
-    port = _random_ssh_port()
-    pid = _random_sshd_pid()
+    port = random_ssh_port()
+    pid = random_sshd_pid()
     suffix = format_auth_ml_suffix(classification, count)
 
     roll = random.random()
@@ -140,7 +140,7 @@ def generate_auth_normal_burst(
     return lines, t
 
 
-def _advance_time(
+def advance_time(
     t: datetime.datetime,
     *,
     min_ms: int = 200,
@@ -149,7 +149,7 @@ def _advance_time(
     return t + datetime.timedelta(milliseconds=random.randint(min_ms, max_ms))
 
 
-def _random_enum_username() -> str:
+def random_enum_username() -> str:
     p = random.choice(SSH_ENUM_RANDOM_PREFIXES)
     return f"{p}_{random.randint(100, 99999)}"
 
@@ -167,8 +167,8 @@ def auth_ssh_bruteforce_attack(
     lines: list[str] = []
     t = current_time
     host = AUTH_HOSTNAME
-    port = _random_ssh_port()
-    pid = _random_sshd_pid()
+    port = random_ssh_port()
+    pid = random_sshd_pid()
     suffix = format_auth_ml_suffix("auth_ssh_bruteforce", count)
     attempts = random.randint(18, 36)
 
@@ -188,12 +188,12 @@ def auth_ssh_bruteforce_attack(
                 f"from {ip} port {port} ssh2{suffix}"
             )
         else:
-            user = _random_enum_username()
+            user = random_enum_username()
             lines.append(
                 f"{ts} {host} sshd[{pid}]: Failed password for invalid user {user} "
                 f"from {ip} port {port} ssh2{suffix}"
             )
-        t = _advance_time(t, min_ms=150, max_ms=2400)
+        t = advance_time(t, min_ms=150, max_ms=2400)
 
     return lines, t
 
@@ -210,25 +210,25 @@ def auth_ssh_user_enum_attack(
     lines: list[str] = []
     t = current_time
     host = AUTH_HOSTNAME
-    port = _random_ssh_port()
-    pid = _random_sshd_pid()
+    port = random_ssh_port()
+    pid = random_sshd_pid()
     suffix = format_auth_ml_suffix("auth_ssh_user_enum", count)
     attempts = random.randint(22, 55)
 
     for _ in range(attempts):
         ts = format_trad_syslog_ts(t)
         if random.random() < 0.82:
-            user = _random_enum_username()
+            user = random_enum_username()
             lines.append(
                 f"{ts} {host} sshd[{pid}]: Invalid user {user} from {ip} port {port} ssh2{suffix}"
             )
         else:
-            user = _random_enum_username()
+            user = random_enum_username()
             lines.append(
                 f"{ts} {host} sshd[{pid}]: Failed password for invalid user {user} "
                 f"from {ip} port {port} ssh2{suffix}"
             )
-        t = _advance_time(t, min_ms=80, max_ms=1800)
+        t = advance_time(t, min_ms=80, max_ms=1800)
 
     return lines, t
 
@@ -262,7 +262,7 @@ def auth_sudo_bruteforce_attack(
             f"logname={ruser} uid={uid} euid=0 tty=/dev/pts/{tty_n} "
             f"ruser={ruser} rhost=  user={target}{suffix}"
         )
-        t = _advance_time(t, min_ms=400, max_ms=4500)
+        t = advance_time(t, min_ms=400, max_ms=4500)
 
     return lines, t
 
@@ -281,15 +281,15 @@ def auth_privilege_escalation_attack(
     host = AUTH_HOSTNAME
     suffix = format_auth_ml_suffix("auth_privilege_escalation", count)
     user = random.choice(["deploy", "ubuntu", "ci-runner", "backup", "build"])
-    port = _random_ssh_port()
-    pid = _random_sshd_pid()
+    port = random_ssh_port()
+    pid = random_sshd_pid()
 
     ts = format_trad_syslog_ts(t)
     lines.append(
         f"{ts} {host} sshd[{pid}]: Accepted password for {user} "
         f"from {ip} port {port} ssh2{suffix}"
     )
-    t = _advance_time(t, min_ms=800, max_ms=5200)
+    t = advance_time(t, min_ms=800, max_ms=5200)
 
     uid = random.randint(1000, 65534)
     tty_n = random.randint(0, 6)
@@ -302,7 +302,7 @@ def auth_privilege_escalation_attack(
             f"logname={user} uid={uid} euid=0 tty=/dev/pts/{tty_n} "
             f"ruser={user} rhost=  user={target}{suffix}"
         )
-        t = _advance_time(t, min_ms=300, max_ms=3800)
+        t = advance_time(t, min_ms=300, max_ms=3800)
 
     ts = format_trad_syslog_ts(t)
     pwd = f"/home/{user}"
@@ -318,6 +318,6 @@ def auth_privilege_escalation_attack(
         f"{ts} {host} sudo:   {user} : TTY=pts/{tty_n} ; PWD={pwd} ; "
         f"USER=root ; COMMAND={cmd}{suffix}"
     )
-    t = _advance_time(t, min_ms=200, max_ms=1500)
+    t = advance_time(t, min_ms=200, max_ms=1500)
 
     return lines, t
