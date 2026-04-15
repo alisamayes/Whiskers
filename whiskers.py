@@ -18,6 +18,7 @@ from analysis.detectors import (
     AuthSshBruteforceDetector,
     AuthSshUserEnumDetector,
     AuthSudoBruteforceDetector,
+    AuthPrivilegeEscalationChain,
     IsolationForestDetector,
     SupervisedIPClassifierDetector,
 )
@@ -75,6 +76,7 @@ class Whiskers:
             AuthSshBruteforceDetector(threshold=8, session_gap_seconds=90),
             AuthSshUserEnumDetector(threshold=12, session_gap_seconds=90),
             AuthSudoBruteforceDetector(threshold=5, session_gap_seconds=180),
+            AuthPrivilegeEscalationChain(threshold=3, window_seconds=600, first_fail_max_seconds=240, heuristic_threshold=5),
             IsolationForestDetector(),
             SupervisedIPClassifierDetector(),
         ]
@@ -359,6 +361,18 @@ class Whiskers:
             elif arg in ("-gauth", "--generate_auth"):
                 self.gen_auth = True
                 self.gen_new = True
+                if not self.auth_logs:
+                    self.auth_logs = [
+                        {"name": "auth", "path": "data/auth.log", "format": "auth"}
+                    ]
+
+            elif arg in ("-gfire", "--generate_firewall"):
+                self.gen_firewall = True
+                self.gen_new = True
+                if not self.firewall_logs:
+                    self.firewall_logs = [
+                        {"name": "firewall", "path": "data/firewall.log", "format": "firewall"}
+                    ]
 
             elif arg in ("-d", "--detect"):
                 self.run_detection = True
