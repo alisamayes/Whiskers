@@ -91,10 +91,6 @@ def report_check_stats(
 
     lines: list[str] = [""]
 
-    if len(detected_counts) != len(true_counts):
-        lines.append("Warning: amount of detected and true attack varieties differ in length.")
-        lines.append("")
-
     lines.append("--------------- ACCURACY (per attack type) ---------------")
 
     for attack_type in true_counts:

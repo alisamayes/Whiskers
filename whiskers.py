@@ -183,23 +183,33 @@ class Whiskers:
     def show_help(self):
         """Print CLI usage, flags, and auxiliary file-management commands."""
         help_text = """         Startup Usage: python main.py [options]
-            Options:
+            OPTIONS:
+
+            General:
             -h, --help                      Show this help message
+            -ui, --ui                       Open the graphical user interface
+            q , quit, exit                  Close Whiskers
+
+            Generation:
             -gac, --generate_access         Generate new access log (data/access.log)
             -gauth, --generate_auth         Generate new auth log (data/auth.log)
             -gfire, --generate_firewall     Generate new firewall log (data/firewall.log)
             -s, --size [number]             Base number of actions to generate (default 2000, attacks will generate more log lines)
-            -d, --detect                    Rerun detection algorithms on current logs
+
+            Detection:
+            -d, --detect                    Run detection algorithms on all current logs
+            -dac, --detect-access           Run detection algorithms on access.log (unless other path specified)
+            -dauth, --detect-auth           Run detection algorithms on auth.log (unless other path specified)
             -v, --verbose                   Enable verbose output for detect. Shows all detected alerts with details instead of just summary counts.
+            -al, --access-log [PATH]        Use a specific access log file instead of data/access.log
+            -au, --auth-log [PATH]          Use a specific Linux auth log file instead of data/auth.log
+            -fw, --firewall-log [PATH]      Use a specific firewall log file instead of data/firewall.log (WIP)
+            
+            Checking:
             -c, --check                     Check for accuracy of detection
             -as, --actor-stats              Show distribution of actor profiles in the generated logs
-            -al, --access-log PATH           Use a specific access log file instead of data/access.log
-            -ea, --extra-access-log PATH    Add an additional access log file
-            -fw, --firewall-log PATH        Add a firewall log file (WIP)
-            -au, --auth-log PATH            Add a Linux auth log file (auth.log / secure; sshd, sudo)
-            -ui, --ui                       Open the graphical user interface
 
-            Additional commands (not used with flags):
+            Log managment:
             save [filename] [directory]     Save the current access log to a new file with optional directory (default directory is ./data/)
             shred [filename] [directory]    Delete a log file that is no longer needed (default directory is ./data/)
                     
@@ -325,10 +335,18 @@ class Whiskers:
         while i < len(command):
             arg = command[i].lower()
 
-            if arg in ("quit", "exit", "q", "-q", "--quit", "--exit"):
+            # General (matches help text order)
+            if arg in ("-h", "--help"):
+                self.show_help()
+
+            elif arg in ("-ui", "--ui"):
+                self.open_ui()
+
+            elif arg in ("quit", "exit", "q", "-q", "--quit", "--exit"):
                 print("Exiting Whiskers. Stay safe out there!")
                 sys.exit(0)
 
+            # Log management
             elif arg == "save":
                 # This should only be run as a solo command (with args). Cancel if there are other args to avoid confusion.
                 # Expected usage: "save" or "save data/etra_run.log" 
@@ -340,12 +358,7 @@ class Whiskers:
                 log_shredder(command[1:])  # pass any additional args to log_shredder for filename/directory handling
                 break # break to avoid processing any additional args after shred command
 
-            elif arg in ("-h", "--help"):
-                self.show_help()
-
-            elif arg in ("-v", "--verbose"):
-                self.mode = "verbose"
-            
+            # Generation
             elif arg in ("-gac", "--generate_access"):
                 self.gen_access = True
                 self.gen_new = True
@@ -366,19 +379,44 @@ class Whiskers:
                         {"name": "firewall", "path": "data/firewall.log", "format": "firewall"}
                     ]
 
+            elif arg in ("-g", "--generate"):
+                self.gen_access = True
+                self.gen_auth = True
+                self.gen_new = True
+                if not self.auth_logs:
+                    self.auth_logs = [
+                        {"name": "auth", "path": "data/auth.log", "format": "auth"}
+                    ]
+
+            # Detection
             elif arg in ("-d", "--detect"):
                 self.run_detection = True
+                self.access_logs = [
+                    {"name": "access", "path": "data/access.log", "format": "access"}
+                ]
+                self.auth_logs = [
+                    {"name": "auth", "path": "data/auth.log", "format": "auth"}
+                ]
 
-            elif arg in ("-c", "--check"):
-                self.check = True
-            
-            elif arg in ("-s", "--size"):
-                try:
-                    self.size = int(command[i + 1])
-                    print(f"Set log size to {self.size}")
-                    i += 1  # skip the value we just consumed
-                except (ValueError, IndexError):
-                    print("Invalid size argument. Using default value of 2000.")
+            elif arg in ("-dac", "--detect_access"):
+                self.run_detection = True
+                self.access_logs = [
+                    {"name": "access", "path": "data/access.log", "format": "access"}
+                ]
+                self.auth_logs = []
+                self.firewall_logs = []
+
+            elif arg in ("-dauth", "--detect_auth"):
+                # Detect using auth logs only
+                self.run_detection = True
+                self.auth_logs = [
+                    {"name": "auth", "path": "data/auth.log", "format": "auth"}
+                ]
+                self.access_logs = []
+                self.firewall_logs = []
+
+            elif arg in ("-v", "--verbose"):
+                self.mode = "verbose"
 
             elif arg in ("-al", "--access-log", "access-log"):
                 try:
@@ -390,15 +428,15 @@ class Whiskers:
                 except IndexError:
                     print("Invalid or missing path for --access-log; keeping default data/access.log.")
 
-            elif arg in ("-ea", "--extra-access-log"):
+            elif arg in ("-au", "--auth-log"):
                 try:
                     path = command[i + 1]
-                    self.access_logs.append(
-                        {"name": "access", "path": path, "format": "access"}
+                    self.auth_logs.append(
+                        {"name": "auth", "path": path, "format": "auth"}
                     )
                     i += 1
                 except IndexError:
-                    print("Invalid or missing path for --extra-access-log; ignoring.")
+                    print("Invalid or missing path for --auth-log; ignoring.")
 
             elif arg in ("-fw", "--firewall-log"):
                 try:
@@ -410,25 +448,26 @@ class Whiskers:
                 except IndexError:
                     print("Invalid or missing path for --firewall-log; ignoring.")
 
-            elif arg in ("-au", "--auth-log"):
-                try:
-                    path = command[i + 1]
-                    self.auth_logs.append(
-                        {"name": "auth", "path": path, "format": "auth"}
-                    )
-                    i += 1
-                except IndexError:
-                    print("Invalid or missing path for --auth-log; ignoring.")
+            # Checking
+            elif arg in ("-c", "--check"):
+                self.check = True
 
             elif arg in ("-as", "--actor-stats"):
                 show_actor_distribution(self.profile_counts, self.log_source_counts)
                 break
 
+            # Hidden / fun commands (not in help)
             elif arg == "mouse":
                 print(self.mouse_art_2[0])
 
-            elif arg in ("-ui", "--ui"):
-                self.open_ui()
+            # Misc options
+            elif arg in ("-s", "--size"):
+                try:
+                    self.size = int(command[i + 1])
+                    print(f"Set log size to {self.size}")
+                    i += 1  # skip the value we just consumed
+                except (ValueError, IndexError):
+                    print("Invalid size argument. Using default value of 2000.")
 
             else:
                 print("Unknown argument:", arg, " use -h or --help for command list")
@@ -437,6 +476,7 @@ class Whiskers:
 
         # Second pass: execute actions after all arguments are parsed
         if self.gen_new:
+            print("\n=============== Running Generation ===============\n")
             self.run_generation(
                 size=self.size,
                 users=100,
@@ -444,6 +484,7 @@ class Whiskers:
                 gen_auth=self.gen_auth,
                 gen_firewall=self.gen_firewall,
             )
+            print(report_generation_stats(attack_counters))
             self.gen_new = False
             self.gen_access = False
             self.gen_auth = False
@@ -454,6 +495,11 @@ class Whiskers:
             print("\n=============== Running Detection ===============\n")
             print(self.run_detection_pipeline())
             self.run_detection = False
+            self.access_logs = [
+                {"name": "access", "path": "data/access.log", "format": "access"}
+            ]
+            self.auth_logs = []
+            self.firewall_logs = []
 
         if self.check:
             print("\n=============== Running Checking ===============\n")
