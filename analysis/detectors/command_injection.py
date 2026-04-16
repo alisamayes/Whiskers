@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from typing import List
+
 import pandas as pd
+
 from .base import BaseDetector, ThreatAlert
 
 SUSPECT_COMMAND_SUBSTRINGS = [
@@ -14,7 +16,7 @@ SUSPECT_COMMAND_SUBSTRINGS = [
     "%3B",
     "%253B",
     "%7C",
- #   "%24%28",
+    #   "%24%28",
     "%60",
     "echo+test",
     "probe_test",
@@ -32,21 +34,24 @@ COMMAND_INJECTION_PATTERNS = [
     "/debug?mode=$(<simulated-command>)",
     "/info?cmd=`<simulated-command>`",
     "/action?input=value|<simulated-command>",
-    "/run?x=test%3B<simulated-command>",  
+    "/run?x=test%3B<simulated-command>",
     "/run?x=test%253B<simulated-command>",
-    "/probe?id=<simulated-command>_delay_test", 
+    "/probe?id=<simulated-command>_delay_test",
     "/file?name=data;<simulated-command>",
     "/calculate?num=10;<simulated-command>",
-    "/tools/exec/<simulated-command>_attempt", 
+    "/tools/exec/<simulated-command>_attempt",
     "/check?param=value;;;<simulated-command>",
-    "/submit?value=$(echo+test)|<simulated-command>", 
+    "/submit?value=$(echo+test)|<simulated-command>",
 ]
+
 
 class CommandInjectionDetector(BaseDetector):
     """Detects likely command injection attempts based on request paths/query strings."""
 
     kind = "access_command_injection"
-    description = "Detects command injection-style payloads in request paths or query strings"
+    description = (
+        "Detects command injection-style payloads in request paths or query strings"
+    )
 
     def __init__(self, threshold: int = 3, session_gap_seconds: int = 60):
         """
@@ -66,9 +71,9 @@ class CommandInjectionDetector(BaseDetector):
 
         if df.empty or "path" not in df.columns:
             return alerts
-        
+
         # This was for debuging purposes
-        #df.to_pickle("data/dataframe.pkl")
+        # df.to_pickle("data/dataframe.pkl")
 
         suspicious = df[df["path"].apply(self.is_suspicious)].copy()
         if suspicious.empty:
@@ -76,7 +81,6 @@ class CommandInjectionDetector(BaseDetector):
 
         suspicious = suspicious.sort_values(["ip", "timestamp"])
         gap = pd.Timedelta(seconds=self.session_gap_seconds)
-
 
         # Sessionise per IP: a command injection attack is a burst of suspicious paths
         for ip, group in suspicious.groupby("ip"):

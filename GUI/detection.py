@@ -5,14 +5,9 @@ This page provides a button-driven way to run the same detection pipeline that t
 would run for the `-d/--detect` command.
 """
 
-from PyQt6.QtWidgets import (
-    QWidget,
-    QVBoxLayout,
-    QHBoxLayout,
-    QLabel,
-    QPushButton,
-)
 from typing import TypedDict
+
+from PyQt6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
 
 from GUI.config import active_dark_green
 
@@ -23,7 +18,7 @@ class _LogToggleEntry(TypedDict):
 
 
 class DetectionPage(QWidget):
-    def __init__(self, whiskers_agent, parent = None):
+    def __init__(self, whiskers_agent, parent=None):
         """
         Initialize the Detection Page widget.
         Sets up the page with a range of buttons that allow the user to handle the generation of new simulated log files with buttons as opposed
@@ -31,9 +26,8 @@ class DetectionPage(QWidget):
         """
         super().__init__(parent)
 
-
         self.whiskers = whiskers_agent
-        #Pyqt6 widgets
+        # Pyqt6 widgets
 
         self.main_layout = QVBoxLayout()
         # ============================================
@@ -44,21 +38,24 @@ class DetectionPage(QWidget):
         self.types_label = QLabel("Log Types:")
         self.access_log_button = QPushButton("Access")
         self.access_log_button.clicked.connect(
-            lambda: self.toggle_button(self.access_log_button))
+            lambda: self.toggle_button(self.access_log_button)
+        )
         self.auth_log_button = QPushButton("Auth")
         self.auth_log_button.clicked.connect(
-            lambda: self.toggle_button(self.auth_log_button))
+            lambda: self.toggle_button(self.auth_log_button)
+        )
         self.firewall_log_button = QPushButton("Firewall")
         self.firewall_log_button.clicked.connect(
-            lambda: self.toggle_button(self.firewall_log_button))
-        
+            lambda: self.toggle_button(self.firewall_log_button)
+        )
+
         self.type_line.addWidget(self.types_label)
         self.type_line.addWidget(self.access_log_button)
         self.type_line.addWidget(self.auth_log_button)
         self.type_line.addWidget(self.firewall_log_button)
 
         self.detect_box.addLayout(self.type_line)
-        #--------------------------------------------
+        # --------------------------------------------
         self.detect_button = QPushButton("DETECT")
         self.detect_button.clicked.connect(self.detect)
         self.detect_box.addWidget(self.detect_button)
@@ -66,7 +63,7 @@ class DetectionPage(QWidget):
         # ============================================
 
         self.stats_box = QVBoxLayout()
-        #--------------------------------------------
+        # --------------------------------------------
         self.true_attack_stats = QLabel("")
         self.stats_box.addWidget(self.true_attack_stats)
 
@@ -74,24 +71,22 @@ class DetectionPage(QWidget):
         self.main_layout.addLayout(self.stats_box)
         self.setLayout(self.main_layout)
 
-        #============================================
+        # ============================================
 
         # Class variables
 
         self.log_types: dict[str, _LogToggleEntry] = {
-            "Access" : {"state" :False , "button" : self.access_log_button},
-            "Auth" : {"state" :False , "button" : self.auth_log_button},
-            "Firewall": {"state" :False , "button" : self.firewall_log_button},
+            "Access": {"state": False, "button": self.access_log_button},
+            "Auth": {"state": False, "button": self.auth_log_button},
+            "Firewall": {"state": False, "button": self.firewall_log_button},
         }
 
         self.toggle_button(self.access_log_button)
 
-        
     def toggle_button(self, button: QPushButton):
         """Toggle a source button and propagate state to the Whiskers engine."""
         text = button.text()
         entry = self.log_types[text]
-
 
         entry["state"] = not entry["state"]
         if entry["state"]:
@@ -128,15 +123,15 @@ class DetectionPage(QWidget):
         attr, src = sources[log_type]
         setattr(engine, attr, [src] if enabled else [])
 
-
-
     def detect(self):
         """Run parse + true-count refresh + detection for selected sources."""
         # For now, run the same pipeline as CLI `-d/--detect` against the current
         # configured log sources on the Whiskers instance.
         w = getattr(self.window(), "whiskers", None)
         if w is None:
-            self.true_attack_stats.setText("Error: Whiskers engine not attached to the main window.")
+            self.true_attack_stats.setText(
+                "Error: Whiskers engine not attached to the main window."
+            )
             return
 
         w.run_detection_pipeline()

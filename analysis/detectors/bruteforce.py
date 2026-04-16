@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from typing import List
+
 import pandas as pd
+
 from .base import BaseDetector, ThreatAlert
 
 
@@ -16,7 +18,7 @@ class BruteForceDetector(BaseDetector):
     def __init__(self, threshold: int = 5, session_gap_seconds: int = 60):
         """
         Initialize brute force detector.
-        
+
         Args:
             threshold: Minimum number of failed attempts within a burst to alert.
             session_gap_seconds: Gap in seconds between attempts that starts a new burst.
@@ -31,7 +33,7 @@ class BruteForceDetector(BaseDetector):
 
         Args:
             df: Parsed access log dataframe.
-            
+
         Returns:
             List of ThreatAlert objects (one per detected burst).
         """
@@ -39,9 +41,9 @@ class BruteForceDetector(BaseDetector):
 
         # Filter for failed login attempts (behavioral detection, no use of classification/count)
         failed = df[
-            (df["path"] == "/login") &
-            (df["status"] == 401) &
-            (df["method"] == "POST")  # Brute force typically uses POST
+            (df["path"] == "/login")
+            & (df["status"] == 401)
+            & (df["method"] == "POST")  # Brute force typically uses POST
         ].copy()
 
         if failed.empty:

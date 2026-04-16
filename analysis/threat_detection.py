@@ -16,13 +16,9 @@ class Mäuschen_Detective_Tools:
     def __init__(self):
         pass
 
-    
-    def detect_bruteforce(self,df):
+    def detect_bruteforce(self, df):
 
-        failed = df[
-            (df["path"] == "/login") &
-            (df["status"] == 401)
-        ].copy()
+        failed = df[(df["path"] == "/login") & (df["status"] == 401)].copy()
 
         failed = failed.set_index("timestamp")
 
@@ -32,9 +28,7 @@ class Mäuschen_Detective_Tools:
 
         return alerts
 
-
-
-    def detect_scanning(self,df):
+    def detect_scanning(self, df):
 
         # Look for IPs with many 404 errors on different paths in a short time
         failed_requests = df[df["status"] == 404].copy()
@@ -48,9 +42,7 @@ class Mäuschen_Detective_Tools:
 
         return alerts
 
-
-
-    def detect_request_flood(self,df):
+    def detect_request_flood(self, df):
 
         df = df.sort_values("timestamp")
         df = df.set_index("timestamp")
@@ -67,7 +59,10 @@ class Mäuschen_Detective_Tools:
 
             for time, count in flood_points.items():
 
-                if last_alert_time is None or (time - last_alert_time).total_seconds() > 60:
+                if (
+                    last_alert_time is None
+                    or (time - last_alert_time).total_seconds() > 60
+                ):
                     alerts.append((ip, time, int(count)))
                     last_alert_time = time
 

@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 from typing import List
-import pandas as pd
-from .base import BaseDetector, ThreatAlert
 
+import pandas as pd
+
+from .base import BaseDetector, ThreatAlert
 
 SUSPECT_SUBSTRINGS = [
     " or 1=1",
-    " or \"1\"=\"1",
+    ' or "1"="1',
     "'--",
     " union select ",
     " drop table ",
@@ -20,7 +21,7 @@ SUSPECT_SUBSTRINGS = [
 
 SQLI_PATTERNS = [
     "/search?q=' OR 1=1 --",
-    "/search?q=\" OR \"1\"=\"1",
+    '/search?q=" OR "1"="1',
     "/login?user=admin'--",
     "/products?id=1 UNION SELECT username, password FROM users",
     "/items?id=1; DROP TABLE users",
@@ -96,4 +97,3 @@ class SqlInjectionDetector(BaseDetector):
                 )
 
         return alerts
-

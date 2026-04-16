@@ -1,19 +1,21 @@
-'''
+"""
 This file will contain the "Generation" page class for Whiskers GUI. It will handle allowing a user to do the generation related
 commands via buttons as opposed to the CLI ones
-'''
+"""
+
+from typing import TypedDict
 
 from PyQt6.QtWidgets import (
-    QWidget,
-    QVBoxLayout,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QPushButton,
-    QLineEdit
+    QVBoxLayout,
+    QWidget,
 )
-from typing import TypedDict
-from simulator.log_simulator import generate_logs
+
 from GUI.config import active_dark_green
+from simulator.log_simulator import generate_logs
 
 
 class _LogToggleEntry(TypedDict):
@@ -31,7 +33,7 @@ class GenPage(QWidget):
         super().__init__()
         self.whiskers = whiskers_agent
 
-        #Pyqt6 widgets
+        # Pyqt6 widgets
 
         self.main_layout = QVBoxLayout()
         # ============================================
@@ -42,21 +44,24 @@ class GenPage(QWidget):
         self.types_label = QLabel("Log Types:")
         self.access_log_button = QPushButton("Access")
         self.access_log_button.clicked.connect(
-            lambda: self.toggle_button(self.access_log_button))
+            lambda: self.toggle_button(self.access_log_button)
+        )
         self.auth_log_button = QPushButton("Auth")
         self.auth_log_button.clicked.connect(
-            lambda: self.toggle_button(self.auth_log_button))
+            lambda: self.toggle_button(self.auth_log_button)
+        )
         self.firewall_log_button = QPushButton("Firewall")
         self.firewall_log_button.clicked.connect(
-            lambda: self.toggle_button(self.firewall_log_button))
-        
+            lambda: self.toggle_button(self.firewall_log_button)
+        )
+
         self.type_line.addWidget(self.types_label)
         self.type_line.addWidget(self.access_log_button)
         self.type_line.addWidget(self.auth_log_button)
         self.type_line.addWidget(self.firewall_log_button)
 
         self.gen_box.addLayout(self.type_line)
-        #--------------------------------------------
+        # --------------------------------------------
         self.additional_options_line = QHBoxLayout()
         self.additional_options_label = QLabel("Additional Options: ")
         self.size_label = QLabel("Size - ")
@@ -67,7 +72,7 @@ class GenPage(QWidget):
         self.additional_options_line.addWidget(self.size_input)
 
         self.gen_box.addLayout(self.additional_options_line)
-        #--------------------------------------------
+        # --------------------------------------------
         self.generate_button = QPushButton("GENERATE")
         self.generate_button.clicked.connect(self.generate)
         self.gen_box.addWidget(self.generate_button)
@@ -75,7 +80,7 @@ class GenPage(QWidget):
         # ============================================
 
         self.stats_box = QVBoxLayout()
-        #--------------------------------------------
+        # --------------------------------------------
         self.true_attack_stats = QLabel("")
         self.actor_labels = QLabel("")
         self.actor_stats = QLabel("")
@@ -84,23 +89,21 @@ class GenPage(QWidget):
         self.stats_box.addWidget(self.actor_labels)
         self.stats_box.addWidget(self.actor_stats)
 
-
         self.main_layout.addLayout(self.gen_box)
         self.main_layout.addLayout(self.stats_box)
         self.setLayout(self.main_layout)
 
-        #============================================
+        # ============================================
 
         # Class variables
 
         self.log_types: dict[str, _LogToggleEntry] = {
-            "Access" : {"state" :False , "button" : self.access_log_button},
-            "Auth" : {"state" :False , "button" : self.auth_log_button},
-            "Firewall": {"state" :False , "button" : self.firewall_log_button},
+            "Access": {"state": False, "button": self.access_log_button},
+            "Auth": {"state": False, "button": self.auth_log_button},
+            "Firewall": {"state": False, "button": self.firewall_log_button},
         }
 
         self.toggle_button(self.access_log_button)
-
 
     def generate(self):
         """Run log generation with current UI toggles and display results."""
@@ -166,13 +169,27 @@ class GenPage(QWidget):
                 + attack_counters.get("access_data_exfiltration", 0)
                 + attack_counters.get("access_command_injection", 0)
             )
-            stats_message += "\nBrute-force: " + str(attack_counters.get("access_brute_force", 0))
-            stats_message += "\nDirectory scan: " + str(attack_counters.get("access_directory_scan", 0))
-            stats_message += "\nRequest flood: " + str(attack_counters.get("access_request_flood", 0))
-            stats_message += "\nSQL injection: " + str(attack_counters.get("access_sql_injection", 0))
-            stats_message += "\nData exfiltration: " + str(attack_counters.get("access_data_exfiltration", 0))
-            stats_message += "\nCommand injection: " + str(attack_counters.get("access_command_injection", 0))
-            stats_message += "\nTotal attacks detected in access log: " + str(total_access_attacks)
+            stats_message += "\nBrute-force: " + str(
+                attack_counters.get("access_brute_force", 0)
+            )
+            stats_message += "\nDirectory scan: " + str(
+                attack_counters.get("access_directory_scan", 0)
+            )
+            stats_message += "\nRequest flood: " + str(
+                attack_counters.get("access_request_flood", 0)
+            )
+            stats_message += "\nSQL injection: " + str(
+                attack_counters.get("access_sql_injection", 0)
+            )
+            stats_message += "\nData exfiltration: " + str(
+                attack_counters.get("access_data_exfiltration", 0)
+            )
+            stats_message += "\nCommand injection: " + str(
+                attack_counters.get("access_command_injection", 0)
+            )
+            stats_message += "\nTotal attacks detected in access log: " + str(
+                total_access_attacks
+            )
         else:
             stats_message += "\nNot generated."
 
@@ -181,18 +198,21 @@ class GenPage(QWidget):
             ssh_bruteforce = int(attack_counters.get("auth_ssh_bruteforce", 0) or 0)
             ssh_user_enum = int(attack_counters.get("auth_ssh_user_enum", 0) or 0)
             sudo_bruteforce = int(attack_counters.get("auth_sudo_bruteforce", 0) or 0)
-            privilege_escalation = int(attack_counters.get("auth_privilege_escalation", 0) or 0)
+            privilege_escalation = int(
+                attack_counters.get("auth_privilege_escalation", 0) or 0
+            )
             total_auth_attacks = (
-                ssh_bruteforce
-                + ssh_user_enum
-                + sudo_bruteforce
-                + privilege_escalation
+                ssh_bruteforce + ssh_user_enum + sudo_bruteforce + privilege_escalation
             )
             stats_message += "\nSSH brute-force: " + str(ssh_bruteforce)
             stats_message += "\nSSH user enumeration: " + str(ssh_user_enum)
             stats_message += "\nSudo auth failures: " + str(sudo_bruteforce)
-            stats_message += "\nPrivilege escalation chain: " + str(privilege_escalation)
-            stats_message += "\nTotal attacks detected in auth log: " + str(total_auth_attacks)
+            stats_message += "\nPrivilege escalation chain: " + str(
+                privilege_escalation
+            )
+            stats_message += "\nTotal attacks detected in auth log: " + str(
+                total_auth_attacks
+            )
         else:
             stats_message += "\nNot generated."
 
@@ -221,20 +241,26 @@ class GenPage(QWidget):
                 + " lines"
             )
         if gen_firewall:
-            profile_message += "\nFirewall log: generated (instance/line totals not yet implemented)"
+            profile_message += (
+                "\nFirewall log: generated (instance/line totals not yet implemented)"
+            )
 
-        profile_message += "\n\nUser distribution and generated log line counts by actor:"
+        profile_message += (
+            "\n\nUser distribution and generated log line counts by actor:"
+        )
         roles = ("normal", "scanner", "attacker", "compromised")
         for role in roles:
             users_count = int(profile_counts.get(role, 0) or 0)
             access_count = int(log_source_counts.get(role, 0) or 0) if gen_access else 0
-            auth_count = int(auth_log_source_counts.get(role, 0) or 0) if gen_auth else 0
-            label = role.capitalize()
-            profile_message += (
-                f"\n{label}: {users_count} users, {access_count} access lines, {auth_count} auth lines"
+            auth_count = (
+                int(auth_log_source_counts.get(role, 0) or 0) if gen_auth else 0
             )
+            label = role.capitalize()
+            profile_message += f"\n{label}: {users_count} users, {access_count} access lines, {auth_count} auth lines"
 
-        profile_message += "\n\n(Actor rows show generated lines by actor for each log type.)"
+        profile_message += (
+            "\n\n(Actor rows show generated lines by actor for each log type.)"
+        )
 
         self.actor_stats.setText(profile_message)
 
@@ -248,50 +274,65 @@ class GenPage(QWidget):
         stats_message = "\n--------------- ACCESS LOG ---------------"
         if had_access:
             stats_message += "\nBrute-force: " + str(tc.get("access_brute_force", 0))
-            stats_message += "\nDirectory scan: " + str(tc.get("access_directory_scan", 0))
-            stats_message += "\nRequest flood: " + str(tc.get("access_request_flood", 0))
-            stats_message += "\nSQL injection: " + str(tc.get("access_sql_injection", 0))
-            stats_message += "\nData exfiltration: " + str(tc.get("access_data_exfiltration", 0))
-            stats_message += "\nCommand injection: " + str(tc.get("access_command_injection", 0))
+            stats_message += "\nDirectory scan: " + str(
+                tc.get("access_directory_scan", 0)
+            )
+            stats_message += "\nRequest flood: " + str(
+                tc.get("access_request_flood", 0)
+            )
+            stats_message += "\nSQL injection: " + str(
+                tc.get("access_sql_injection", 0)
+            )
+            stats_message += "\nData exfiltration: " + str(
+                tc.get("access_data_exfiltration", 0)
+            )
+            stats_message += "\nCommand injection: " + str(
+                tc.get("access_command_injection", 0)
+            )
         else:
             stats_message += "Access log: no file found at configured path(s)."
 
         stats_message += "\n--------------- AUTH LOG ---------------"
         if had_auth:
-            stats_message += (
-                "\nSSH brute-force: "
-                + str(tc.get("auth_ssh_bruteforce", 0))
+            stats_message += "\nSSH brute-force: " + str(
+                tc.get("auth_ssh_bruteforce", 0)
             )
-            stats_message += (
-                "\nSSH user enumeration: "
-                + str(tc.get("auth_ssh_user_enum", 0))
+            stats_message += "\nSSH user enumeration: " + str(
+                tc.get("auth_ssh_user_enum", 0)
             )
-            stats_message += (
-                "\nSudo auth failures: "
-                + str(tc.get("auth_sudo_bruteforce", 0))
+            stats_message += "\nSudo auth failures: " + str(
+                tc.get("auth_sudo_bruteforce", 0)
             )
-            stats_message += (
-                "\nPrivilege escalation chain: "
-                + str(tc.get("auth_privilege_escalation", 0))
+            stats_message += "\nPrivilege escalation chain: " + str(
+                tc.get("auth_privilege_escalation", 0)
             )
         else:
-            stats_message += "\nAuth log: no file found at default or configured path(s)."
+            stats_message += (
+                "\nAuth log: no file found at default or configured path(s)."
+            )
 
         stats_message += "\n--------------- FIREWALL LOG ---------------"
         if had_fw:
             stats_message += "\nFirewall log: loaded from disk."
         else:
-            stats_message += "\nFirewall log: no file found at default or configured path(s)."
+            stats_message += (
+                "\nFirewall log: no file found at default or configured path(s)."
+            )
 
         self.true_attack_stats.setText(stats_message)
 
         df = getattr(w, "df", None)
         pc = getattr(w, "profile_counts", {}) or {}
         lsc = getattr(w, "log_source_counts", {}) or {}
-        sim_profiles = sum(int(pc.get(k, 0) or 0) for k in ("normal", "scanner", "attacker", "compromised"))
+        sim_profiles = sum(
+            int(pc.get(k, 0) or 0)
+            for k in ("normal", "scanner", "attacker", "compromised")
+        )
 
         if sim_profiles > 0:
-            profile_message = "User distribution and access log line counts (from last simulation):"
+            profile_message = (
+                "User distribution and access log line counts (from last simulation):"
+            )
             profile_message += (
                 "\nNormal users: "
                 + str(pc.get("normal", 0))
@@ -342,6 +383,3 @@ class GenPage(QWidget):
             entry["button"].setStyleSheet(f"color: {active_dark_green};")
         else:
             entry["button"].setStyleSheet("")
-
-
-    

@@ -25,21 +25,24 @@ def report_generation_stats(true_attack_counts):
 
     return "\n".join(lines)
 
-def report_detection_stats(all_alerts, detected_attack_counts, mode, *, ml_summary=None):
+
+def report_detection_stats(
+    all_alerts, detected_attack_counts, mode, *, ml_summary=None
+):
 
     lines: list[str] = [""]
     if mode == "verbose":
-            lines.append("--- threat detections ---")
-            verbose_by_kind: dict[str, list[object]] = {}
-            for alert in all_alerts:
-                verbose_by_kind.setdefault(alert.kind, []).append(alert)
+        lines.append("--- threat detections ---")
+        verbose_by_kind: dict[str, list[object]] = {}
+        for alert in all_alerts:
+            verbose_by_kind.setdefault(alert.kind, []).append(alert)
 
-            for kind, alerts_of_kind in verbose_by_kind.items():
-                lines.append(f"\n{kind.upper()} ({len(alerts_of_kind)} total):")
-                detected_attack_counts[kind] = len(alerts_of_kind)
-                for alert in alerts_of_kind:
-                    lines.append(f"  ⚠ {alert}")
-            lines.append("--- end detections ---\n")
+        for kind, alerts_of_kind in verbose_by_kind.items():
+            lines.append(f"\n{kind.upper()} ({len(alerts_of_kind)} total):")
+            detected_attack_counts[kind] = len(alerts_of_kind)
+            for alert in alerts_of_kind:
+                lines.append(f"  ⚠ {alert}")
+        lines.append("--- end detections ---\n")
     else:
         # Summary view
         summary_by_kind: dict[str, int] = {}
@@ -47,9 +50,13 @@ def report_detection_stats(all_alerts, detected_attack_counts, mode, *, ml_summa
             summary_by_kind[alert.kind] = summary_by_kind.get(alert.kind, 0) + 1
         for kind, count in summary_by_kind.items():
             if kind == "ml_anomaly":
-                lines.append(f"ML isolation forest identified {count} anomalous/ hostile IPs")
+                lines.append(
+                    f"ML isolation forest identified {count} anomalous/ hostile IPs"
+                )
             else:
-                lines.append(f"{kind.replace('_', ' ').title()} attempts detected: {count}")
+                lines.append(
+                    f"{kind.replace('_', ' ').title()} attempts detected: {count}"
+                )
             detected_attack_counts[kind] = count
 
     if ml_summary:
@@ -62,7 +69,9 @@ def report_detection_stats(all_alerts, detected_attack_counts, mode, *, ml_summa
             n = use_forest = mad = flagged = None
 
         if n is not None and flagged is not None:
-            lines.append("\n-------------- Machine Learning Behaviour Anomaly Detector --------------")
+            lines.append(
+                "\n-------------- Machine Learning Behaviour Anomaly Detector --------------"
+            )
             lines.append(f"Unique IPs in this log: {n}")
             if use_forest:
                 lines.append(f"Outlier sensitivity: {mad:g}× ")
@@ -79,12 +88,8 @@ def report_detection_stats(all_alerts, detected_attack_counts, mode, *, ml_summa
 
 
 def report_check_stats(
-    true_counts,
-    detected_counts,
-    ips_that_attacked,
-    profile_counts,
-    log_source_counts
-    ) -> str:
+    true_counts, detected_counts, ips_that_attacked, profile_counts, log_source_counts
+) -> str:
     """
     Takes in relevant data relating to the true and detecked counts and outputs the accuracy of each attack type
     """
@@ -107,7 +112,9 @@ def report_check_stats(
                 f"{label} accuracy: {accuracy:.2f}%. Under-detected {detected} attempts out of {true} generated attacks."
             )
         else:
-            lines.append(f"{label} accuracy: 100%. Detected all {true} generated attempts.")
+            lines.append(
+                f"{label} accuracy: 100%. Detected all {true} generated attempts."
+            )
 
     if "ml_anomaly" in detected_counts:
         hostile_count = 0
@@ -121,7 +128,9 @@ def report_check_stats(
         )
 
     lines.append("")
-    lines.append("--------------- USER DISTRIBUTION (generation / actor pool) ---------------")
+    lines.append(
+        "--------------- USER DISTRIBUTION (generation / actor pool) ---------------"
+    )
     if profile_counts:
         for role, n in profile_counts.items():
             lines.append(f"- {role}: {n} users")
@@ -129,11 +138,15 @@ def report_check_stats(
         lines.append("(not available)")
 
     lines.append("")
-    lines.append("--------------- LOG LINE SOURCE DISTRIBUTION (access lines by actor) ---------------")
+    lines.append(
+        "--------------- LOG LINE SOURCE DISTRIBUTION (access lines by actor) ---------------"
+    )
     if log_source_counts:
         for role, n in log_source_counts.items():
             lines.append(f"- {role}: {n} access log lines")
     else:
-        lines.append("(not available — run generation with access log, or N/A if no access data)")
+        lines.append(
+            "(not available — run generation with access log, or N/A if no access data)"
+        )
 
     return "\n".join(lines)

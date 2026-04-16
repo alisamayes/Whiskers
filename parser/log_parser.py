@@ -11,7 +11,7 @@ import pandas as pd
 # Note: the last two fields are for ML classifaction only and rule based detection ignores it.
 
 ACCESS_PATTERN = (
-    r'(\d+\.\d+\.\d+\.\d+) - - \[(.*?)\] '
+    r"(\d+\.\d+\.\d+\.\d+) - - \[(.*?)\] "
     r'"(GET|POST) ([^"]*) HTTP/1.1" '
     r'(\d+) (\d+) "(.*?)" "(.*?)"(?:\s+(\w+(?:_\w+)*))?(?:\s+(\d+))?'
 )
@@ -20,8 +20,8 @@ ACCESS_PATTERN = (
 # Simple firewall log pattern (example):
 # 2026-03-10T12:00:01Z FIREWALL ALLOW src=1.2.3.4 dst=5.6.7.8 dport=443 proto=tcp bytes=1234
 FIREWALL_PATTERN = (
-    r'(\S+)\s+FIREWALL\s+(ALLOW|DENY)\s+src=([\d\.]+)\s+dst=([\d\.]+)\s+'
-    r'dport=(\d+)\s+proto=(\w+)\s+bytes=(\d+)'
+    r"(\S+)\s+FIREWALL\s+(ALLOW|DENY)\s+src=([\d\.]+)\s+dst=([\d\.]+)\s+"
+    r"dport=(\d+)\s+proto=(\w+)\s+bytes=(\d+)"
 )
 
 # Linux auth / syslog (after hostname): sshd[pid]: ... or sudo: ...
@@ -45,12 +45,8 @@ _SSH_FROM_PORT = re.compile(r"\bfrom\s+(\S+)\s+port\s+(\d+)\b")
 _SSH_FAILED_INVALID_USER = re.compile(
     r"Failed password for invalid user (\S+) from (\S+) port (\d+)"
 )
-_SSH_FAILED_USER = re.compile(
-    r"Failed password for (\S+) from (\S+) port (\d+)"
-)
-_SSH_INVALID_USER = re.compile(
-    r"Invalid user (\S+) from (\S+) port (\d+)"
-)
+_SSH_FAILED_USER = re.compile(r"Failed password for (\S+) from (\S+) port (\d+)")
+_SSH_INVALID_USER = re.compile(r"Invalid user (\S+) from (\S+) port (\d+)")
 _SSH_ACCEPTED = re.compile(
     r"Accepted (?:password|publickey|keyboard-interactive) for (\S+) from (\S+) port (\d+)"
 )
@@ -69,7 +65,9 @@ _SUDO_AUTH_FAIL = re.compile(
 _AUTH_ML_TRAILER = re.compile(r"\s+(\w+(?:_\w+)*)\s+(\d+)\s*$")
 
 
-def read_text_lines_safe(file_path: str, *, quiet: bool = True) -> tuple[list[str], str | None]:
+def read_text_lines_safe(
+    file_path: str, *, quiet: bool = True
+) -> tuple[list[str], str | None]:
     """Read UTF-8 text lines safely and return ``(lines, error_message)``."""
     try:
         with open(file_path, encoding="utf-8", errors="replace") as f:
@@ -331,21 +329,36 @@ def parse_logs(file, source: str = "access", *, quiet: bool = False):
 
         if match:
 
-            ip, timestamp, method, path, status, bytes_sent, referer, agent, classification, count = match.groups()
+            (
+                ip,
+                timestamp,
+                method,
+                path,
+                status,
+                bytes_sent,
+                referer,
+                agent,
+                classification,
+                count,
+            ) = match.groups()
 
-            logs.append({
-                "ip": ip,
-                "timestamp": timestamp,
-                "method": method,
-                "path": path,
-                "status": int(status),
-                "bytes_sent": int(bytes_sent),
-                "referer": referer,
-                "agent": agent,
-                "classification": classification if classification is not None else "normal",
-                "count": int(count) if count is not None else 0,
-                "log_source": source,
-            })
+            logs.append(
+                {
+                    "ip": ip,
+                    "timestamp": timestamp,
+                    "method": method,
+                    "path": path,
+                    "status": int(status),
+                    "bytes_sent": int(bytes_sent),
+                    "referer": referer,
+                    "agent": agent,
+                    "classification": (
+                        classification if classification is not None else "normal"
+                    ),
+                    "count": int(count) if count is not None else 0,
+                    "log_source": source,
+                }
+            )
 
     df = pd.DataFrame(logs)
 
@@ -360,8 +373,6 @@ def parse_logs(file, source: str = "access", *, quiet: bool = False):
         df = df.sort_values("timestamp")
 
     return df
-
-
 
 
 def parse_firewall_logs(file, source: str = "firewall"):
@@ -406,6 +417,5 @@ def parse_firewall_logs(file, source: str = "firewall"):
         df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True, errors="coerce")
         df = df.dropna(subset=["timestamp"])
         df = df.sort_values("timestamp")
-
 
     return df

@@ -5,19 +5,20 @@ This page provides a GUI log reader to view contents of one or more log files as
 with tools such as vi or nano, meaning the user would have to go outside the scope of Whiskers to check them.
 """
 
+from parser.log_parser import read_text_lines_safe
+from typing import TypedDict
+
+from PyQt6.QtCore import QStringListModel
 from PyQt6.QtWidgets import (
-    QWidget,
-    QVBoxLayout,
     QHBoxLayout,
     QLabel,
+    QListView,
     QPushButton,
-    QListView
+    QVBoxLayout,
+    QWidget,
 )
-from typing import TypedDict
-from PyQt6.QtCore import QStringListModel
 
 from GUI.config import active_dark_green
-from parser.log_parser import read_text_lines_safe
 
 # Tight vertical spacing for log lines (QListView default padding is roomy).
 _LOG_VIEW_STYLE = """
@@ -32,13 +33,14 @@ _LOG_VIEW_STYLE = """
     }
 """
 
+
 class _LogToggleEntry(TypedDict):
     state: bool
     button: QPushButton
 
 
 class LogReaderPage(QWidget):
-    def __init__(self, whiskers_agent, parent = None):
+    def __init__(self, whiskers_agent, parent=None):
         """
         Initialize the Detection Page widget.
         Sets up the page with a range of buttons that allow the user to handle the generation of new simulated log files with buttons as opposed
@@ -46,9 +48,8 @@ class LogReaderPage(QWidget):
         """
         super().__init__(parent)
 
-
         self.whiskers = whiskers_agent
-        #Pyqt6 widgets
+        # Pyqt6 widgets
 
         self.main_layout = QVBoxLayout()
         # ============================================
@@ -60,21 +61,24 @@ class LogReaderPage(QWidget):
         self.types_label = QLabel("Log Types:")
         self.access_log_button = QPushButton("Access")
         self.access_log_button.clicked.connect(
-            lambda: self.toggle_button(self.access_log_button))
+            lambda: self.toggle_button(self.access_log_button)
+        )
         self.auth_log_button = QPushButton("Auth")
         self.auth_log_button.clicked.connect(
-            lambda: self.toggle_button(self.auth_log_button))
+            lambda: self.toggle_button(self.auth_log_button)
+        )
         self.firewall_log_button = QPushButton("Firewall")
         self.firewall_log_button.clicked.connect(
-            lambda: self.toggle_button(self.firewall_log_button))
-        
+            lambda: self.toggle_button(self.firewall_log_button)
+        )
+
         self.type_line.addWidget(self.types_label)
         self.type_line.addWidget(self.access_log_button)
         self.type_line.addWidget(self.auth_log_button)
         self.type_line.addWidget(self.firewall_log_button)
 
         self.control_box.addLayout(self.type_line)
-        #--------------------------------------------
+        # --------------------------------------------
         self.load_button = QPushButton("LOAD")
         self.load_button.clicked.connect(self.load_log_files)
         self.control_box.addWidget(self.load_button)
@@ -89,23 +93,21 @@ class LogReaderPage(QWidget):
         self.main_layout.addLayout(self.reader_box, stretch=1)
         self.setLayout(self.main_layout)
 
-        #============================================
+        # ============================================
 
         # Class variables
 
         self.log_types: dict[str, _LogToggleEntry] = {
-            "Access" : {"state" :False , "button" : self.access_log_button},
-            "Auth" : {"state" :False , "button" : self.auth_log_button},
-            "Firewall": {"state" :False , "button" : self.firewall_log_button},
+            "Access": {"state": False, "button": self.access_log_button},
+            "Auth": {"state": False, "button": self.auth_log_button},
+            "Firewall": {"state": False, "button": self.firewall_log_button},
         }
 
         self.toggle_button(self.access_log_button)
 
-
     def toggle_button(self, button: QPushButton):
         text = button.text()
         entry = self.log_types[text]
-
 
         entry["state"] = not entry["state"]
         button_ref = entry["button"]
@@ -115,7 +117,7 @@ class LogReaderPage(QWidget):
             button_ref.setStyleSheet("")
 
     def load_log_files(self):
-        """ 
+        """
         Allows the user to load one or more types of log files and display it in a log reader, as opposed to having
         to use the CLI with tools like nano or vi, which take the user outside the scope of Whiskers to check them.
         """

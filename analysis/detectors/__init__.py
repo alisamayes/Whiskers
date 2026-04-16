@@ -1,20 +1,20 @@
 """Threat detectors package."""
 
-from .base import BaseDetector, ThreatAlert
-from .bruteforce import BruteForceDetector
-from .scan import ScanDetector
-from .flood import FloodDetector
-from .sql_injection import SqlInjectionDetector
-from .exfiltration import ExfiltrationDetector
-from .command_injection import CommandInjectionDetector
 from .auth_attacks import (
     AuthPrivilegeEscalationChain,
     AuthSshBruteforceDetector,
     AuthSshUserEnumDetector,
     AuthSudoBruteforceDetector,
 )
+from .base import BaseDetector, ThreatAlert
+from .bruteforce import BruteForceDetector
+from .command_injection import CommandInjectionDetector
+from .exfiltration import ExfiltrationDetector
+from .flood import FloodDetector
 from .ml_isolation import IsolationForestDetector
 from .ml_supervised import SupervisedIPClassifierDetector
+from .scan import ScanDetector
+from .sql_injection import SqlInjectionDetector
 
 __all__ = [
     "BaseDetector",

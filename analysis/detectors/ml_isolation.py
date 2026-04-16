@@ -15,8 +15,9 @@ import pandas as pd
 from sklearn.ensemble import IsolationForest
 from sklearn.preprocessing import StandardScaler
 
-from .base import BaseDetector, ThreatAlert
 from analysis.feature_engineering import basic_aggregate_features
+
+from .base import BaseDetector, ThreatAlert
 
 
 def _robust_left_tail_threshold(scores: np.ndarray, mad_multiplier: float) -> float:
@@ -34,7 +35,9 @@ def _robust_left_tail_threshold(scores: np.ndarray, mad_multiplier: float) -> fl
     return med - mad_multiplier * sigma
 
 
-def _behavior_enriched_features(df: pd.DataFrame, features: pd.DataFrame) -> pd.DataFrame:
+def _behavior_enriched_features(
+    df: pd.DataFrame, features: pd.DataFrame
+) -> pd.DataFrame:
     """Add behaviour-only columns (no log classification labels)."""
     out = features.copy()
     tr = out["total_requests"].clip(lower=1)
@@ -53,7 +56,9 @@ def _behavior_enriched_features(df: pd.DataFrame, features: pd.DataFrame) -> pd.
     out["burstiness"] = 1.0 / (1.0 + ai)  # higher when intervals are short
 
     if "method" in df.columns:
-        is_post = (df["method"].astype(str).str.upper() == "POST").groupby(df["ip"]).mean()
+        is_post = (
+            (df["method"].astype(str).str.upper() == "POST").groupby(df["ip"]).mean()
+        )
         out["post_fraction"] = is_post.reindex(out.index).fillna(0.0)
     else:
         out["post_fraction"] = 0.0
@@ -154,9 +159,7 @@ class IsolationForestDetector(BaseDetector):
         for i, ip in enumerate(ips):
             r = float(risk[i])
             hostile = (
-                use_forest
-                and if_outlier[i]
-                and r >= self.min_behavioral_risk
+                use_forest and if_outlier[i] and r >= self.min_behavioral_risk
             ) or (r >= self.severe_behavioral_risk)
 
             if not hostile:

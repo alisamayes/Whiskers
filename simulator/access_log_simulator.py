@@ -3,7 +3,6 @@ import random
 
 from simulator.user import IPS_ATTACK, IPS_NORMAL
 
-
 PATHS_NORMAL = [
     "/",
     "/products",

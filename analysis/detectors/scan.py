@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from typing import List
+
 import pandas as pd
+
 from .base import BaseDetector, ThreatAlert
 
 
@@ -11,12 +13,14 @@ class ScanDetector(BaseDetector):
     """Detects directory/path scanning attempts."""
 
     kind = "access_directory_scan"
-    description = "Detects probing for multiple paths (404 errors on different endpoints)"
+    description = (
+        "Detects probing for multiple paths (404 errors on different endpoints)"
+    )
 
     def __init__(self, threshold: int = 4, session_gap_seconds: int = 10):
         """
         Initialize scan detector.
-        
+
         Args:
             threshold: Number of unique 404 paths within a scan burst to alert.
             session_gap_seconds: Gap in seconds between 404s that starts a new burst.
@@ -27,10 +31,10 @@ class ScanDetector(BaseDetector):
     def detect(self, df: pd.DataFrame) -> List[ThreatAlert]:
         """
         Detect directory scanning by looking for multiple 404 errors on different paths.
-        
+
         Args:
             df: Parsed access log dataframe.
-            
+
         Returns:
             List of ThreatAlert objects.
         """

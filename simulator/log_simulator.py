@@ -1,26 +1,27 @@
+import datetime
 import os
 import random
-import datetime
 import sys
 
-from simulator.user import User, PROFILES, IPS_ATTACK
+from analysis.stats import report_generation_stats
 from simulator.access_log_simulator import (
-    generate_normal_request,
     brute_force_attack,
+    command_injection_attack,
     directory_scan,
+    exfiltration_attack,
+    generate_normal_request,
     request_flood,
     sql_injection_attack,
-    exfiltration_attack,
-    command_injection_attack,
 )
 from simulator.auth_log_simulator import (
+    auth_privilege_escalation_attack,
     auth_ssh_bruteforce_attack,
     auth_ssh_user_enum_attack,
     auth_sudo_bruteforce_attack,
-    auth_privilege_escalation_attack,
     generate_auth_normal_event,
 )
-from analysis.stats import report_generation_stats
+from simulator.user import IPS_ATTACK, PROFILES, User
+
 
 def generate_logs(
     size=2000,
@@ -28,7 +29,7 @@ def generate_logs(
     gen_access: bool = True,
     gen_auth: bool = False,
     gen_firewall: bool = False,
-    ):
+):
     """
     Generate access/auth/firewall log files and return generation stats.
 
@@ -102,7 +103,7 @@ def generate_logs(
     firewall_path = "data/firewall.log"
 
     access_f_ctx = None
-    if gen_access :
+    if gen_access:
         access_f_ctx = open(access_path, "w", encoding="utf-8")
     auth_f_ctx = None
     if gen_auth:
@@ -120,7 +121,14 @@ def generate_logs(
                 assert auth_f is not None
                 # One auth instance per loop: either one attack episode or one normal event.
                 if random.random() < 0.016:
-                    kind = random.choice(["auth_ssh_bruteforce", "auth_ssh_user_enum", "auth_sudo_bruteforce", "auth_privilege_escalation"])
+                    kind = random.choice(
+                        [
+                            "auth_ssh_bruteforce",
+                            "auth_ssh_user_enum",
+                            "auth_sudo_bruteforce",
+                            "auth_privilege_escalation",
+                        ]
+                    )
                     attack_counters[kind] += 1
                     atk_ip = random.choice(IPS_ATTACK)
                     if kind == "auth_ssh_bruteforce":
@@ -150,7 +158,6 @@ def generate_logs(
                     auth_line_count += 1
                     auth_log_source_counts["normal"] += 1
 
-            
             if gen_access:
                 assert f is not None
 
@@ -210,7 +217,6 @@ def generate_logs(
         if firewall_f_ctx is not None:
             firewall_f_ctx.close()
 
-
     return {
         "attack_counters": attack_counters,
         "profile_counts": profile_counts,
@@ -222,5 +228,3 @@ def generate_logs(
         "ips_that_attacked": ips_that_attacked,
         "auth_line_count": auth_line_count,
     }
-
-

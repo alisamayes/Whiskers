@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import pandas as pd
 
 
@@ -34,7 +35,7 @@ def basic_aggregate_features(df: pd.DataFrame) -> pd.DataFrame:
     status = df["status"]
     by_ip = df["ip"]
 
-    error_flag = (status >= 400)
+    error_flag = status >= 400
     features["error_rate"] = error_flag.groupby(by_ip).mean()
 
     frac_2xx = status.between(200, 299)
@@ -62,7 +63,9 @@ def basic_aggregate_features(df: pd.DataFrame) -> pd.DataFrame:
         return diffs.mean()
 
     timestamp_series = grouped["timestamp"].apply(list)
-    features["avg_interval"] = timestamp_series.apply(lambda lst: avg_interval(pd.Series(lst)))
+    features["avg_interval"] = timestamp_series.apply(
+        lambda lst: avg_interval(pd.Series(lst))
+    )
 
     return features
 
@@ -74,11 +77,27 @@ def basic_aggregate_features(df: pd.DataFrame) -> pd.DataFrame:
 if __name__ == "__main__":
     # quick sanity check
     import pandas as pd
+
     df = pd.DataFrame(
         [
-            {"ip": "1.1.1.1", "timestamp": pd.Timestamp("2026-03-10 00:00"), "path": "/", "status": 200},
-            {"ip": "1.1.1.1", "timestamp": pd.Timestamp("2026-03-10 00:00:05"), "path": "/login", "status": 401},
-            {"ip": "2.2.2.2", "timestamp": pd.Timestamp("2026-03-10 00:01"), "path": "/", "status": 500},
+            {
+                "ip": "1.1.1.1",
+                "timestamp": pd.Timestamp("2026-03-10 00:00"),
+                "path": "/",
+                "status": 200,
+            },
+            {
+                "ip": "1.1.1.1",
+                "timestamp": pd.Timestamp("2026-03-10 00:00:05"),
+                "path": "/login",
+                "status": 401,
+            },
+            {
+                "ip": "2.2.2.2",
+                "timestamp": pd.Timestamp("2026-03-10 00:01"),
+                "path": "/",
+                "status": 500,
+            },
         ]
     )
     print(basic_aggregate_features(df))

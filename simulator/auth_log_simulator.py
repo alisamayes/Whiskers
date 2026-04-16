@@ -24,7 +24,18 @@ SSH_BRUTEFORCE_TARGETS = [
     "user",
 ]
 
-SSH_ENUM_RANDOM_PREFIXES = ["svc", "scan", "test", "tmp", "bx", "z", "u", "sql", "ftp", "vpn"]
+SSH_ENUM_RANDOM_PREFIXES = [
+    "svc",
+    "scan",
+    "test",
+    "tmp",
+    "bx",
+    "z",
+    "u",
+    "sql",
+    "ftp",
+    "vpn",
+]
 
 AUTH_USERS = [
     "alice",
@@ -135,7 +146,9 @@ def generate_auth_normal_burst(
     lines: list[str] = []
     t = current_time
     for _ in range(max(0, n_events)):
-        line, t = generate_auth_normal_event(t, classification=classification, count=count)
+        line, t = generate_auth_normal_event(
+            t, classification=classification, count=count
+        )
         lines.append(line)
     return lines, t
 

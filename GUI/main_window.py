@@ -1,20 +1,20 @@
 from pathlib import Path
 
+from PyQt6.QtCore import QObject, Qt, pyqtSignal
+from PyQt6.QtGui import QCloseEvent, QFont, QIcon, QPixmap, QResizeEvent, QShowEvent
 from PyQt6.QtWidgets import (
-    QMainWindow,
-    QTabWidget,
-    QWidget,
-    QVBoxLayout,
     QLabel,
+    QMainWindow,
     QSizePolicy,
     QSystemTrayIcon,
+    QTabWidget,
+    QVBoxLayout,
+    QWidget,
 )
-from PyQt6.QtGui import QPixmap, QFont, QResizeEvent, QShowEvent, QIcon, QCloseEvent
-from PyQt6.QtCore import Qt, QObject, pyqtSignal
 
-from GUI.generation import GenPage
-from GUI.detection import DetectionPage
 from GUI.checking import CheckingPage
+from GUI.detection import DetectionPage
+from GUI.generation import GenPage
 from GUI.log_reader import LogReaderPage
 
 _ASSETS = Path(__file__).resolve().parent.parent / "assets"
@@ -62,7 +62,6 @@ class ApplicationWindow(QMainWindow):
         self.tray.setToolTip("Whiskers")
         self.setWindowIcon(window_icon)
 
-
         self.tabs = QTabWidget()
         self.setCentralWidget(self.tabs)
 
@@ -86,6 +85,7 @@ class ApplicationWindow(QMainWindow):
             self.hide()
         else:
             super().closeEvent(event)
+
 
 class HomePage(QWidget):
     def __init__(self):
@@ -128,8 +128,12 @@ class HomePage(QWidget):
 
         # Logo row absorbs almost all extra space; text rows stay compact
         layout.addWidget(self.logo_label, stretch=1)
-        layout.addWidget(self.title_label, stretch=0, alignment=Qt.AlignmentFlag.AlignHCenter)
-        layout.addWidget(self.subtitle_label, stretch=0, alignment=Qt.AlignmentFlag.AlignHCenter)
+        layout.addWidget(
+            self.title_label, stretch=0, alignment=Qt.AlignmentFlag.AlignHCenter
+        )
+        layout.addWidget(
+            self.subtitle_label, stretch=0, alignment=Qt.AlignmentFlag.AlignHCenter
+        )
 
     def showEvent(self, event: QShowEvent | None) -> None:
         super().showEvent(event)

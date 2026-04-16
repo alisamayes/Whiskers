@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from typing import List
+
 import pandas as pd
+
 from .base import BaseDetector, ThreatAlert
 
 
@@ -16,7 +18,7 @@ class FloodDetector(BaseDetector):
     def __init__(self, threshold: int = 100, session_gap_seconds: int = 5):
         """
         Initialize flood detector.
-        
+
         Args:
             threshold: Number of requests within a flood burst to alert.
             session_gap_seconds: Gap in seconds between requests that starts a new burst.
@@ -27,10 +29,10 @@ class FloodDetector(BaseDetector):
     def detect(self, df: pd.DataFrame) -> List[ThreatAlert]:
         """
         Detect request floods by looking for high request rates per IP.
-        
+
         Args:
             df: Parsed access log dataframe.
-            
+
         Returns:
             List of ThreatAlert objects.
         """

@@ -5,13 +5,10 @@ Shows the same summary as CLI ``-c``: accuracy vs labels, user distribution, and
 log-line source counts. Does **not** re-run detection — use the Detector tab first.
 """
 
-from PyQt6.QtWidgets import (
-    QWidget,
-    QVBoxLayout,
-    QLabel,
-    QPushButton,
-)
+from PyQt6.QtWidgets import QLabel, QPushButton, QVBoxLayout, QWidget
+
 from analysis.stats import report_check_stats
+
 
 class CheckingPage(QWidget):
     def __init__(self, whiskers_agent, parent=None):
@@ -54,7 +51,9 @@ class CheckingPage(QWidget):
         try:
             w.update_true_attack_counts_from_df()
         except Exception as e:
-            self.report_stats.setText(f"Error while reading true counts from dataframe:\n{e}")
+            self.report_stats.setText(
+                f"Error while reading true counts from dataframe:\n{e}"
+            )
             self.info_stats.setText("")
             return
         report = w.run_check_report()
@@ -84,7 +83,9 @@ class CheckingPage(QWidget):
         try:
             w.update_true_attack_counts_from_df()
         except Exception as e:
-            self.report_stats.setText(f"Error while reading true counts from dataframe:\n{e}")
+            self.report_stats.setText(
+                f"Error while reading true counts from dataframe:\n{e}"
+            )
             self.info_stats.setText("")
             return
 

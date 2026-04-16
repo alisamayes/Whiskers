@@ -8,8 +8,9 @@ from typing import List
 import joblib
 import pandas as pd
 
-from .base import BaseDetector, ThreatAlert
 from analysis.feature_engineering import basic_aggregate_features
+
+from .base import BaseDetector, ThreatAlert
 
 
 class SupervisedIPClassifierDetector(BaseDetector):
@@ -78,4 +79,3 @@ class SupervisedIPClassifierDetector(BaseDetector):
                     )
 
         return alerts
-

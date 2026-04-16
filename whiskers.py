@@ -1,29 +1,32 @@
 import sys
 import threading
+from parser.log_parser import parse_auth_logs, parse_firewall_logs, parse_logs
 from typing import List, Optional, Tuple
 
 import pandas as pd
 
-from analysis.stats import report_detection_stats, show_actor_distribution
-from parser.log_parser import parse_logs, parse_firewall_logs, parse_auth_logs
 from analysis import feature_engineering
-from analysis.stats import report_check_stats
 from analysis.detectors import (
-    BruteForceDetector,
-    ScanDetector,
-    FloodDetector,
-    SqlInjectionDetector,
-    ExfiltrationDetector,
-    CommandInjectionDetector,
+    AuthPrivilegeEscalationChain,
     AuthSshBruteforceDetector,
     AuthSshUserEnumDetector,
     AuthSudoBruteforceDetector,
-    AuthPrivilegeEscalationChain,
+    BruteForceDetector,
+    CommandInjectionDetector,
+    ExfiltrationDetector,
+    FloodDetector,
     IsolationForestDetector,
+    ScanDetector,
+    SqlInjectionDetector,
     SupervisedIPClassifierDetector,
 )
+from analysis.stats import (
+    report_check_stats,
+    report_detection_stats,
+    show_actor_distribution,
+)
+from simulator.log_manager import log_shredder, save_logs
 from simulator.log_simulator import generate_logs
-from simulator.log_manager import save_logs, log_shredder
 
 
 def normalize_timestamps_utc(df: pd.DataFrame) -> pd.DataFrame:
@@ -64,7 +67,7 @@ class Whiskers:
         self.firewall_logs = []
         # optional Linux auth log sources (auth.log / secure)
         self.auth_logs = []
-        
+
         # Initialize detectors with configurable thresholds
         self.detectors = [
             BruteForceDetector(threshold=10),
@@ -76,7 +79,12 @@ class Whiskers:
             AuthSshBruteforceDetector(threshold=8, session_gap_seconds=90),
             AuthSshUserEnumDetector(threshold=12, session_gap_seconds=90),
             AuthSudoBruteforceDetector(threshold=5, session_gap_seconds=180),
-            AuthPrivilegeEscalationChain(threshold=3, window_seconds=600, first_fail_max_seconds=240, heuristic_threshold=5),
+            AuthPrivilegeEscalationChain(
+                threshold=3,
+                window_seconds=600,
+                first_fail_max_seconds=240,
+                heuristic_threshold=5,
+            ),
             IsolationForestDetector(),
             SupervisedIPClassifierDetector(),
         ]
@@ -113,19 +121,19 @@ class Whiskers:
             "normal": 0,
             "scanner": 0,
             "attacker": 0,
-            "compromised": 0
+            "compromised": 0,
         }
 
         self.log_source_counts = {
             "normal": 0,
             "scanner": 0,
             "attacker": 0,
-            "compromised": 0
+            "compromised": 0,
         }
         self.ips_that_attacked = {}
         self.auth_line_count = 0
 
-        mouse_art_1 = ['''
+        mouse_art_1 = ["""
             ⠀⠀⠀⡎⠑⡄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
         ⠀⠀⠀⠀⠀⠀⢸⠀⠀⠸⡀⠀⠀⠀⣠⠴⡲⠛⠉⠉⠓⠲⣄⠀⠀⠀⠀⠀⠀⠀
         ⠀⠀⠀⠀⠀⠀⢸⠀⠀⠀⣇⡴⢠⠞⢁⠞⠒⠒⠤⠀⠀⠀⠈⢳⠀⠀⠀⠀⠀⠀
@@ -143,8 +151,8 @@ class Whiskers:
         ⠀⠀⠀⠀⠸⣆⠀⢄⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⠀⢀⡞⠀⠀⠀⠀⠀⠀⠀⠀⠀
         ⠀⠀⠀⢀⣴⠋⡛⠲⢵⣦⣽⣦⣀⣀⠀⢀⣀⣠⠴⠋⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
         ⠀⠀⠀⠈⠙⠒⠓⠒⠉⢸⣕⣠⣈⡭⠝⠋⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-        ''']
-        self.mouse_art_2 = ['''
+        """]
+        self.mouse_art_2 = ["""
         ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣿⡆⠀⢀⡴⠚⠉⠉⠉⠙⠢⡄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣠⠤⠤⣄⡀⠀⠀⠀⠀⠀⠀⠀⠀
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⣼⢻⡇⢰⠋⠀⣠⠴⠲⢤⡀⠀⠘⡆⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⡴⠋⠀⠀⠀⢀⣹⡄⠀⠀⠀⠀⠀⠀⠀
@@ -166,7 +174,7 @@ class Whiskers:
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⣧⠀⠀⢸⡄⠀⠀⠀⠀⠀⠀⠀⢠⠏⠀⣤⣾⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢰⣿⣷⣶⣮⣷⠀⠀⠀⠀⠀⠀⠀⢿⣤⣿⣿⣽⠃⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⠉⠙⠉⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-        ''' ]
+        """]
         print(mouse_art_1[0])
         print("Generating new Whiskers Agent...")
 
@@ -216,7 +224,7 @@ class Whiskers:
         """
 
         print(help_text)
-    
+
     def prepare_dataframe(self):
         """Load configured log files into a dataframe and compute features."""
         frames = []
@@ -240,9 +248,7 @@ class Whiskers:
             self.df = pd.DataFrame()
 
         total_files = (
-            len(self.access_logs)
-            + len(self.firewall_logs)
-            + len(self.auth_logs)
+            len(self.access_logs) + len(self.firewall_logs) + len(self.auth_logs)
         )
         self.features = feature_engineering.basic_aggregate_features(self.df)
 
@@ -260,12 +266,12 @@ class Whiskers:
             if getattr(detector, "kind", None) == "ml_anomaly":
                 ml_summary = getattr(detector, "last_run_summary", None)
 
-        return (report_detection_stats(
+        return report_detection_stats(
             self.all_alerts,
             self.detected_attack_counts,
             self.mode,
             ml_summary=ml_summary,
-        ))
+        )
 
     def run_generation(
         self,
@@ -307,7 +313,6 @@ class Whiskers:
             self.log_source_counts,
         )
 
-
     def update_true_attack_counts_from_df(self):
         """Update `self.true_attack_counts` from the parsed log dataframe.
 
@@ -326,7 +331,6 @@ class Whiskers:
                 self.true_attack_counts[key] = 0
             else:
                 self.true_attack_counts[key] = int(attack_logs["count"].nunique())
-
 
     def process_commands(self, command):
         """Parse command tokens, execute actions, and update Whiskers state."""
@@ -349,14 +353,18 @@ class Whiskers:
             # Log management
             elif arg == "save":
                 # This should only be run as a solo command (with args). Cancel if there are other args to avoid confusion.
-                # Expected usage: "save" or "save data/etra_run.log" 
-                save_logs(command[1:])  # pass any additional args to save_logs for filename/directory handling
-                break # break to avoid processing any additional args after save command
+                # Expected usage: "save" or "save data/etra_run.log"
+                save_logs(
+                    command[1:]
+                )  # pass any additional args to save_logs for filename/directory handling
+                break  # break to avoid processing any additional args after save command
 
             elif arg == "shred":
                 # This should only be run as a solo command (with args). Cancel if there are other args to avoid confusion.
-                log_shredder(command[1:])  # pass any additional args to log_shredder for filename/directory handling
-                break # break to avoid processing any additional args after shred command
+                log_shredder(
+                    command[1:]
+                )  # pass any additional args to log_shredder for filename/directory handling
+                break  # break to avoid processing any additional args after shred command
 
             # Generation
             elif arg in ("-gac", "--generate_access"):
@@ -376,7 +384,11 @@ class Whiskers:
                 self.gen_new = True
                 if not self.firewall_logs:
                     self.firewall_logs = [
-                        {"name": "firewall", "path": "data/firewall.log", "format": "firewall"}
+                        {
+                            "name": "firewall",
+                            "path": "data/firewall.log",
+                            "format": "firewall",
+                        }
                     ]
 
             elif arg in ("-g", "--generate"):
@@ -426,7 +438,9 @@ class Whiskers:
                     ]
                     i += 1
                 except IndexError:
-                    print("Invalid or missing path for --access-log; keeping default data/access.log.")
+                    print(
+                        "Invalid or missing path for --access-log; keeping default data/access.log."
+                    )
 
             elif arg in ("-au", "--auth-log"):
                 try:
@@ -490,7 +504,7 @@ class Whiskers:
             self.gen_auth = False
             self.gen_firewall = False
             self.mode = "normal"
-        
+
         if self.run_detection:
             print("\n=============== Running Detection ===============\n")
             print(self.run_detection_pipeline())
@@ -532,6 +546,7 @@ class Whiskers:
     def run_gui_thread(self) -> None:
         """Run the Qt event loop in a dedicated thread."""
         from PyQt6.QtWidgets import QApplication
+
         from GUI.main_window import ApplicationWindow, UiBridge, load_window_icon
 
         # Windows taskbar uses python.exe unless the process has its own AppUserModelID.
@@ -558,7 +573,6 @@ class Whiskers:
         window = self.gui_window
         window.close_hides_only = True
         window.whiskers = self
-        
 
         self.ui_bridge = UiBridge()
 
@@ -580,5 +594,3 @@ class Whiskers:
             user_input = input("Awaiting task for Whiskers...\n").lower()
             command = user_input.strip().split()
             self.process_commands(command)
-
-            

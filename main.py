@@ -1,12 +1,13 @@
-#Structure
+# Structure
 
-#Main start interface
-#Description of functions to user
+# Main start interface
+# Description of functions to user
 
 # Gen logs
 # Parse logs
 
 import sys
+
 from whiskers import Whiskers
 
 

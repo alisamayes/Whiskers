@@ -17,13 +17,14 @@ Typical usage pattern in a Python REPL or notebook:
 
 from __future__ import annotations
 
+from parser.log_parser import parse_logs
+
 import numpy as np
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import classification_report, accuracy_score
+from sklearn.metrics import accuracy_score, classification_report
 from sklearn.model_selection import train_test_split
 
-from parser.log_parser import parse_logs
 from analysis import feature_engineering
 
 
@@ -66,27 +67,40 @@ def compute_request_features(df: pd.DataFrame) -> pd.DataFrame:
     Useful for classifying individual requests as safe/threat.
     """
     print("Computing per-request features...")
-    
+
     # start with the raw log data
     features = df.copy()
-    
+
     # add some request-level features
-    features['is_post'] = (features['method'] == 'POST').astype(int)
-    features['is_error'] = (features['status'] >= 400).astype(int)
-    features['is_5xx'] = (features['status'] >= 500).astype(int)
-    features['path_length'] = features['path'].str.len()
-    features['has_sql_keywords'] = features['path'].str.contains(
-        r"'|union|select|drop|insert|update", case=False, na=False
-    ).astype(int)
-    features['has_admin_path'] = features['path'].str.contains(
-        r'/admin|wp-admin|\.env|\.git|phpmyadmin', case=False, na=False
-    ).astype(int)
-    features['bytes_log'] = np.log1p(features['bytes_sent'])  # log transform
-    
+    features["is_post"] = (features["method"] == "POST").astype(int)
+    features["is_error"] = (features["status"] >= 400).astype(int)
+    features["is_5xx"] = (features["status"] >= 500).astype(int)
+    features["path_length"] = features["path"].str.len()
+    features["has_sql_keywords"] = (
+        features["path"]
+        .str.contains(r"'|union|select|drop|insert|update", case=False, na=False)
+        .astype(int)
+    )
+    features["has_admin_path"] = (
+        features["path"]
+        .str.contains(r"/admin|wp-admin|\.env|\.git|phpmyadmin", case=False, na=False)
+        .astype(int)
+    )
+    features["bytes_log"] = np.log1p(features["bytes_sent"])  # log transform
+
     # keep only numeric features for now
-    numeric_cols = ['status', 'bytes_sent', 'bytes_log', 'path_length', 
-                   'is_post', 'is_error', 'is_5xx', 'has_sql_keywords', 'has_admin_path']
-    
+    numeric_cols = [
+        "status",
+        "bytes_sent",
+        "bytes_log",
+        "path_length",
+        "is_post",
+        "is_error",
+        "is_5xx",
+        "has_sql_keywords",
+        "has_admin_path",
+    ]
+
     result = features[numeric_cols].copy()
     print(f"Computed features for {len(result)} individual requests")
     print(result.head())
@@ -153,25 +167,25 @@ def train_model(X: pd.DataFrame, y: pd.Series):
     classification report so you can see how the model is doing.
     """
     print("Training model...")
-    
+
     # filter out classes with too few samples for stratification
     class_counts = y.value_counts()
     valid_classes = class_counts[class_counts >= 2].index
     mask = y.isin(valid_classes)
     X_filtered = X[mask]
     y_filtered = y[mask]
-    
+
     if len(y_filtered) < len(y):
         print(f"Filtered out {len(y) - len(y_filtered)} samples from rare classes")
         print(f"Remaining: {len(y_filtered)} samples")
-    
+
     # use stratification only if we have enough samples per class
     stratify_param = y_filtered if y_filtered.value_counts().min() >= 2 else None
-    
+
     X_train, X_test, y_train, y_test = train_test_split(
         X_filtered, y_filtered, test_size=0.2, random_state=42, stratify=stratify_param
     )
-    
+
     model = RandomForestClassifier(n_estimators=10, random_state=42)
     model.fit(X_train, y_train)
     y_pred = model.predict(X_test)

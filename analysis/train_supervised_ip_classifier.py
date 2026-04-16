@@ -14,14 +14,14 @@ This script:
 from __future__ import annotations
 
 import os
+from parser.log_parser import parse_logs
 
 import joblib
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report
+from sklearn.model_selection import train_test_split
 
-from parser.log_parser import parse_logs
 from analysis.feature_engineering import basic_aggregate_features
 
 
@@ -42,10 +42,7 @@ def main() -> None:
 
     # 3) Build labels per IP: 1 if any attack classification seen for that IP
     # "normal" is the benign class; everything else is considered "threat"
-    attack_ips = (
-        df[df["classification"] != "normal"]["ip"]
-        .unique()
-    )
+    attack_ips = df[df["classification"] != "normal"]["ip"].unique()
     y = X.index.isin(attack_ips).astype(int)
 
     if y.sum() == 0:
@@ -80,4 +77,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

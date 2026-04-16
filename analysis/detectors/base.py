@@ -2,15 +2,17 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from typing import List
+
 import pandas as pd
 
 
 @dataclass
 class ThreatAlert:
     """Represents a single threat detection."""
+
     ip: str
     timestamp: pd.Timestamp | None
     kind: str
@@ -32,7 +34,7 @@ class BaseDetector(ABC):
     def __init__(self, threshold: int = 10):
         """
         Initialize detector with a configurable threshold.
-        
+
         Args:
             threshold: The alert threshold for this detector.
         """
@@ -42,10 +44,10 @@ class BaseDetector(ABC):
     def detect(self, df: pd.DataFrame) -> List[ThreatAlert]:
         """
         Run threat detection on the given log dataframe.
-        
+
         Args:
             df: Parsed access log dataframe with columns: ip, timestamp, path, status, etc.
-            
+
         Returns:
             List of ThreatAlert objects for detected threats.
         """
