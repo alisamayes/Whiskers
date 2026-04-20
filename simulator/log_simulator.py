@@ -24,7 +24,7 @@ from simulator.user import IPS_ATTACK, PROFILES, User
 
 
 def generate_logs(
-    sizes=[2000,2000,2000],
+    sizes=[2000, 2000, 2000],
     users=100,
     gen_access: bool = True,
     gen_auth: bool = False,
@@ -118,7 +118,12 @@ def generate_logs(
         total_logs = sum(sizes)
 
         for _ in range(total_logs):
-            available_types = [i for i in range(3) if remaining[i] > 0 and (gen_access if i==0 else gen_auth if i==1 else gen_firewall)]
+            available_types = [
+                i
+                for i in range(3)
+                if remaining[i] > 0
+                and (gen_access if i == 0 else gen_auth if i == 1 else gen_firewall)
+            ]
             if not available_types:
                 break
             type_idx = random.choice(available_types)
@@ -157,7 +162,7 @@ def generate_logs(
                 log_source_counts[user.profile] += 1
 
                 for line in logs:
-                    all_logs.append(('access', line))
+                    all_logs.append(("access", line))
                     access_line_count += 1
 
                 remaining[0] -= 1
@@ -190,14 +195,14 @@ def generate_logs(
                     else:
                         auth_actor = "attacker"
                     for aline in auth_lines:
-                        all_logs.append(('auth', aline))
+                        all_logs.append(("auth", aline))
                         auth_line_count += 1
                         auth_log_source_counts[auth_actor] += 1
                 else:
                     line, current_time = generate_auth_normal_event(
                         current_time, classification="normal", count=0
                     )
-                    all_logs.append(('auth', line))
+                    all_logs.append(("auth", line))
                     auth_line_count += 1
                     auth_log_source_counts["normal"] += 1
 
@@ -217,11 +222,11 @@ def generate_logs(
 
         # Write logs to files in the order they were generated (which is chronological)
         for log_type, line in all_logs:
-            if log_type == 'access' and access_f_ctx:
+            if log_type == "access" and access_f_ctx:
                 access_f_ctx.write(line + "\n")
-            elif log_type == 'auth' and auth_f_ctx:
+            elif log_type == "auth" and auth_f_ctx:
                 auth_f_ctx.write(line + "\n")
-            elif log_type == 'firewall' and firewall_f_ctx:
+            elif log_type == "firewall" and firewall_f_ctx:
                 firewall_f_ctx.write(line + "\n")
 
     finally:

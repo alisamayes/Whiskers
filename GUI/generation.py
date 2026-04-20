@@ -133,7 +133,7 @@ class GenPage(QWidget):
             except ValueError:
                 print("Auth size must be a positive int to run generation")
                 return
-        
+
         engine = getattr(self.window(), "whiskers", None) or self.whiskers
         if engine is not None:
             results = engine.run_generation(
