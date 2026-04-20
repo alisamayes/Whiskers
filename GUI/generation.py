@@ -65,11 +65,15 @@ class GenPage(QWidget):
         self.additional_options_line = QHBoxLayout()
         self.additional_options_label = QLabel("Additional Options: ")
         self.size_label = QLabel("Size - ")
-        self.size_input = QLineEdit("2000")
+        self.access_size_input = QLineEdit("1000")
+        self.auth_size_input = QLineEdit("1000")
+        self.firewall_size_input = QLineEdit("")
 
         self.additional_options_line.addWidget(self.additional_options_label)
         self.additional_options_line.addWidget(self.size_label)
-        self.additional_options_line.addWidget(self.size_input)
+        self.additional_options_line.addWidget(self.access_size_input)
+        self.additional_options_line.addWidget(self.auth_size_input)
+        self.additional_options_line.addWidget(self.firewall_size_input)
 
         self.gen_box.addLayout(self.additional_options_line)
         # --------------------------------------------
@@ -107,18 +111,33 @@ class GenPage(QWidget):
 
     def generate(self):
         """Run log generation with current UI toggles and display results."""
-        try:
-            size = int(self.size_input.text())
-        except ValueError:
-            print("Size must be a positive int to run generation")
-            return
         gen_access = self.log_types["Access"]["state"]
         gen_auth = self.log_types["Auth"]["state"]
         gen_firewall = self.log_types["Firewall"]["state"]
+
+        if gen_access:
+            try:
+                access_size = int(self.access_size_input.text())
+            except ValueError:
+                print("Access size must be a positive int to run generation")
+                return
+        if gen_auth:
+            try:
+                auth_size = int(self.auth_size_input.text())
+            except ValueError:
+                print("Auth size must be a positive int to run generation")
+                return
+        if gen_firewall:
+            try:
+                firewall_size = int(self.firewall_size_input.text())
+            except ValueError:
+                print("Auth size must be a positive int to run generation")
+                return
+        
         engine = getattr(self.window(), "whiskers", None) or self.whiskers
         if engine is not None:
             results = engine.run_generation(
-                size=size,
+                size=access_size,
                 users=100,
                 gen_access=gen_access,
                 gen_auth=gen_auth,
@@ -127,7 +146,7 @@ class GenPage(QWidget):
         else:
             # Fallback for standalone page usage outside the main Whiskers window.
             results = generate_logs(
-                size,
+                access_size,
                 100,
                 gen_access,
                 gen_auth,

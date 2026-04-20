@@ -58,6 +58,11 @@ class Whiskers:
         self.gen_firewall = False
         self.run_detection = False
         self.size = 2000
+        self.access_size: int | None = None
+        self.auth_size: int | None = None
+        self.firewall_size: int | None = None
+        self.size_values: list[int] = []
+        self.gen_flag_order: list[str] = []
         # default access log sources
         # each entry: {"name": str, "path": str, "format": str}
         self.access_logs = [
@@ -334,6 +339,9 @@ class Whiskers:
 
     def process_commands(self, command):
         """Parse command tokens, execute actions, and update Whiskers state."""
+        self.gen_flag_order = []
+        self.size_values = []
+
         # First pass: parse all arguments
         i = 0
         while i < len(command):
@@ -370,10 +378,14 @@ class Whiskers:
             elif arg in ("-gac", "--generate_access"):
                 self.gen_access = True
                 self.gen_new = True
+                if "access" not in self.gen_flag_order:
+                    self.gen_flag_order.append("access")
 
             elif arg in ("-gauth", "--generate_auth"):
                 self.gen_auth = True
                 self.gen_new = True
+                if "auth" not in self.gen_flag_order:
+                    self.gen_flag_order.append("auth")
                 if not self.auth_logs:
                     self.auth_logs = [
                         {"name": "auth", "path": "data/auth.log", "format": "auth"}
@@ -382,6 +394,8 @@ class Whiskers:
             elif arg in ("-gfire", "--generate_firewall"):
                 self.gen_firewall = True
                 self.gen_new = True
+                if "firewall" not in self.gen_flag_order:
+                    self.gen_flag_order.append("firewall")
                 if not self.firewall_logs:
                     self.firewall_logs = [
                         {
@@ -395,6 +409,10 @@ class Whiskers:
                 self.gen_access = True
                 self.gen_auth = True
                 self.gen_new = True
+                if "access" not in self.gen_flag_order:
+                    self.gen_flag_order.append("access")
+                if "auth" not in self.gen_flag_order:
+                    self.gen_flag_order.append("auth")
                 if not self.auth_logs:
                     self.auth_logs = [
                         {"name": "auth", "path": "data/auth.log", "format": "auth"}
@@ -476,12 +494,11 @@ class Whiskers:
 
             # Misc options
             elif arg in ("-s", "--size"):
-                try:
-                    self.size = int(command[i + 1])
-                    print(f"Set log size to {self.size}")
-                    i += 1  # skip the value we just consumed
-                except (ValueError, IndexError):
-                    print("Invalid size argument. Using default value of 2000.")
+                offset, ok = self.process_size_commands(command, i)
+                if not ok:
+                    self.gen_new = False
+                    break
+                i += offset
 
             else:
                 print("Unknown argument:", arg, " use -h or --help for command list")
@@ -490,15 +507,29 @@ class Whiskers:
 
         # Second pass: execute actions after all arguments are parsed
         if self.gen_new:
+            resolved_sizes = self._resolve_generation_sizes(
+                gen_access=self.gen_access,
+                gen_auth=self.gen_auth,
+                gen_firewall=self.gen_firewall,
+            )
+            if resolved_sizes is None:
+                self.gen_new = False
+                return
+
+            self.access_size = resolved_sizes["access"]
+            self.auth_size = resolved_sizes["auth"]
+            self.firewall_size = resolved_sizes["firewall"]
+            self.size = self.access_size
+
             print("\n=============== Running Generation ===============\n")
-            self.run_generation(
+            result = self.run_generation(
                 size=self.size,
                 users=100,
                 gen_access=self.gen_access,
                 gen_auth=self.gen_auth,
                 gen_firewall=self.gen_firewall,
             )
-            print(report_generation_stats(attack_counters))
+            print(report_generation_stats(result["attack_counters"]))
             self.gen_new = False
             self.gen_access = False
             self.gen_auth = False
@@ -519,6 +550,82 @@ class Whiskers:
             print("\n=============== Running Checking ===============\n")
             print(self.run_check_report())
             self.check = False
+
+    def process_size_commands(self, command, index):
+        """
+        Parse one-or-more integer values after -s/--size.
+        Returns (offset, ok), where offset is how many tokens were consumed after -s.
+        """
+        self.size_values = []
+        j = index + 1
+        while j < len(command):
+            token = command[j]
+            if token.startswith("-"):
+                break
+            try:
+                parsed = int(token)
+            except ValueError:
+                print(
+                    "Invalid -s/--size value. Provide one or more positive integers after -s."
+                )
+                return 0, False
+            if parsed <= 0:
+                print("Size values must be positive integers.")
+                return 0, False
+            self.size_values.append(parsed)
+            j += 1
+
+        if not self.size_values:
+            print("When using -s/--size, provide at least one integer value.")
+            return 0, False
+
+        return len(self.size_values), True
+
+    def _resolve_generation_sizes(
+        self, *, gen_access: bool, gen_auth: bool, gen_firewall: bool
+    ) -> dict[str, int] | None:
+        """Resolve per-log generation sizes from parsed CLI options."""
+        selected = []
+        if gen_access:
+            selected.append("access")
+        if gen_auth:
+            selected.append("auth")
+        if gen_firewall:
+            selected.append("firewall")
+
+        if not selected:
+            return {"access": 2000, "auth": 2000, "firewall": 2000}
+
+        ordered_selected = [name for name in self.gen_flag_order if name in selected]
+        for name in selected:
+            if name not in ordered_selected:
+                ordered_selected.append(name)
+
+        if not self.size_values:
+            resolved = {name: 2000 for name in selected}
+        elif len(self.size_values) == 1:
+            resolved = {name: self.size_values[0] for name in selected}
+        else:
+            if len(self.size_values) < len(ordered_selected):
+                print(
+                    f"Not enough sizes provided for selected generation flags: expected {len(ordered_selected)}, got {len(self.size_values)}."
+                )
+                return None
+            if len(self.size_values) > len(ordered_selected):
+                print(
+                    f"Too many sizes provided for selected generation flags: expected {len(ordered_selected)}, got {len(self.size_values)}."
+                )
+                return None
+            resolved = {
+                log_type: self.size_values[idx]
+                for idx, log_type in enumerate(ordered_selected)
+            }
+
+        return {
+            "access": resolved.get("access", 2000),
+            "auth": resolved.get("auth", 2000),
+            "firewall": resolved.get("firewall", 2000),
+        }
 
     def open_ui(self) -> None:
         """Open the Qt UI, creating the GUI thread if needed."""
