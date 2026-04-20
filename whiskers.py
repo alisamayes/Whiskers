@@ -23,6 +23,7 @@ from analysis.detectors import (
 from analysis.stats import (
     report_check_stats,
     report_detection_stats,
+    report_generation_stats,
     show_actor_distribution,
 )
 from simulator.log_manager import log_shredder, save_logs
@@ -58,6 +59,11 @@ class Whiskers:
         self.gen_firewall = False
         self.run_detection = False
         self.size = 2000
+        self.access_size: int | None = None
+        self.auth_size: int | None = None
+        self.firewall_size: int | None = None
+        self.size_values: list[int] = []
+        self.gen_flag_order: list[str] = []
         self.access_size: int | None = None
         self.auth_size: int | None = None
         self.firewall_size: int | None = None
@@ -207,8 +213,9 @@ class Whiskers:
             -gac, --generate_access         Generate new access log (data/access.log)
             -gauth, --generate_auth         Generate new auth log (data/auth.log)
             -gfire, --generate_firewall     Generate new firewall log (data/firewall.log)
-            -s, --size [number]             Base number of actions to generate (default 2000, attacks will generate more log lines)
-
+            -s, --size [numbers]            Number of actions actors will take to generate logs (default 2000, attacks will generate more log lines)
+                                            If using multiple log types, can provide multiple comma-separated values to specify size per log type.
+            
             Detection:
             -d, --detect                    Run detection algorithms on all current logs
             -dac, --detect-access           Run detection algorithms on access.log (unless other path specified)
@@ -281,7 +288,7 @@ class Whiskers:
     def run_generation(
         self,
         *,
-        size: int | None = None,
+        sizes: list[int],
         users: int = 100,
         gen_access: bool | None = None,
         gen_auth: bool | None = None,
@@ -289,7 +296,7 @@ class Whiskers:
     ) -> dict:
         """Run simulator generation and synchronize engine state from one result object."""
         result = generate_logs(
-            self.size if size is None else size,
+            sizes,
             users,
             self.gen_access if gen_access is None else gen_access,
             self.gen_auth if gen_auth is None else gen_auth,
@@ -523,7 +530,7 @@ class Whiskers:
 
             print("\n=============== Running Generation ===============\n")
             result = self.run_generation(
-                size=self.size,
+                sizes=[resolved_sizes["access"], resolved_sizes["auth"], resolved_sizes["firewall"]],
                 users=100,
                 gen_access=self.gen_access,
                 gen_auth=self.gen_auth,
