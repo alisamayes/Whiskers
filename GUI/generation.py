@@ -114,11 +114,21 @@ class GenPage(QWidget):
         gen_access = self.log_types["Access"]["state"]
         gen_auth = self.log_types["Auth"]["state"]
         gen_firewall = self.log_types["Firewall"]["state"]
+        access_size = 2000
+        auth_size = 2000
+        firewall_size = 2000
+
+        if not any((gen_access, gen_auth, gen_firewall)):
+            print("Select at least one log type before generating.")
+            return
 
         if gen_access:
             try:
                 access_size = int(self.access_size_input.text())
             except ValueError:
+                print("Access size must be a positive int to run generation")
+                return
+            if access_size <= 0:
                 print("Access size must be a positive int to run generation")
                 return
         if gen_auth:
@@ -127,17 +137,25 @@ class GenPage(QWidget):
             except ValueError:
                 print("Auth size must be a positive int to run generation")
                 return
+            if auth_size <= 0:
+                print("Auth size must be a positive int to run generation")
+                return
         if gen_firewall:
             try:
                 firewall_size = int(self.firewall_size_input.text())
             except ValueError:
-                print("Auth size must be a positive int to run generation")
+                print("Firewall size must be a positive int to run generation")
                 return
+            if firewall_size <= 0:
+                print("Firewall size must be a positive int to run generation")
+                return
+
+        sizes = [access_size, auth_size, firewall_size]
 
         engine = getattr(self.window(), "whiskers", None) or self.whiskers
         if engine is not None:
             results = engine.run_generation(
-                size=access_size,
+                sizes=sizes,
                 users=100,
                 gen_access=gen_access,
                 gen_auth=gen_auth,
@@ -146,7 +164,7 @@ class GenPage(QWidget):
         else:
             # Fallback for standalone page usage outside the main Whiskers window.
             results = generate_logs(
-                access_size,
+                sizes,
                 100,
                 gen_access,
                 gen_auth,
