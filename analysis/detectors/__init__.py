@@ -1,11 +1,9 @@
 """Threat detectors package."""
 
-from .auth_attacks import (
-    AuthPrivilegeEscalationChain,
-    AuthSshBruteforceDetector,
-    AuthSshUserEnumDetector,
-    AuthSudoBruteforceDetector,
-)
+from .auth_privilege_escalation import AuthPrivilegeEscalationChain
+from .auth_ssh_bruteforce import AuthSshBruteforceDetector
+from .auth_ssh_user_enum import AuthSshUserEnumDetector
+from .auth_sudo_bruteforce import AuthSudoBruteforceDetector
 from .base import BaseDetector, ThreatAlert
 from .bruteforce import BruteForceDetector
 from .command_injection import CommandInjectionDetector

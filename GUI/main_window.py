@@ -26,7 +26,7 @@ class UiBridge(QObject):
     show_ui = pyqtSignal()
 
 
-def _load_logo_pixmap() -> QPixmap:
+def load_logo_pixmap() -> QPixmap:
     for name in ("whiskers_logo.png", "whiskers_logo.jpeg", "whisker_logo_alt.jpeg"):
         path = _ASSETS / name
         if path.is_file():
@@ -94,7 +94,7 @@ class HomePage(QWidget):
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(12)
 
-        self._logo_source = _load_logo_pixmap()
+        self.logo_source = load_logo_pixmap()
 
         self.logo_label = QLabel()
         self.logo_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -137,19 +137,19 @@ class HomePage(QWidget):
 
     def showEvent(self, event: QShowEvent | None) -> None:
         super().showEvent(event)
-        self._scale_logo_to_label()
+        self.scale_logo_to_label()
 
     def resizeEvent(self, event: QResizeEvent | None) -> None:
         super().resizeEvent(event)
-        self._scale_logo_to_label()
+        self.scale_logo_to_label()
 
-    def _scale_logo_to_label(self) -> None:
-        if self._logo_source.isNull():
+    def scale_logo_to_label(self) -> None:
+        if self.logo_source.isNull():
             return
         w, h = self.logo_label.width(), self.logo_label.height()
         if w < 2 or h < 2:
             return
-        scaled = self._logo_source.scaled(
+        scaled = self.logo_source.scaled(
             w,
             h,
             Qt.AspectRatioMode.KeepAspectRatio,

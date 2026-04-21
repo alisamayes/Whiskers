@@ -1,7 +1,6 @@
 import sys
 import threading
-from parser.log_parser import parse_auth_logs, parse_firewall_logs, parse_logs
-from typing import List, Optional, Tuple
+from typing import Optional
 
 import pandas as pd
 
@@ -23,10 +22,7 @@ from analysis.detectors import (
 from analysis.stats import (
     report_check_stats,
     report_detection_stats,
-    report_generation_stats,
-    show_actor_distribution,    
 )
-from simulator.log_manager import log_shredder, save_logs
 from simulator.log_simulator import generate_logs
 import command_processing
 
@@ -52,33 +48,8 @@ class Whiskers:
         except Exception:
             pass
 
-        self.mode = "normal"
-        self.check = False
-        self.gen_new = False
-        self.gen_access = False
-        self.gen_auth = False
-        self.gen_firewall = False
-        self.run_detection = False
-        self.size = 2000
-        self.access_size: int | None = None
-        self.auth_size: int | None = None
-        self.firewall_size: int | None = None
-        self.size_values: list[int] = []
-        self.gen_flag_order: list[str] = []
-        self.access_size: int | None = None
-        self.auth_size: int | None = None
-        self.firewall_size: int | None = None
-        self.size_values: list[int] = []
-        self.gen_flag_order: list[str] = []
-        # default access log sources
-        # each entry: {"name": str, "path": str, "format": str}
-        self.access_logs = [
-            {"name": "access", "path": "data/access.log", "format": "access"}
-        ]
-        # optional firewall log sources
-        self.firewall_logs = []
-        # optional Linux auth log sources (auth.log / secure)
-        self.auth_logs = []
+        self.init_runtime_flags()
+        self.init_log_sources()
 
         # Initialize detectors with configurable thresholds
         self.detectors = [
@@ -204,6 +175,31 @@ class Whiskers:
         # Sort out any additional arguments
         command_processing.process_commands(self, args)
 
+    def init_runtime_flags(self) -> None:
+        """Initialize mutable runtime state for CLI and GUI operations."""
+        self.mode = "normal"
+        self.check = False
+        self.gen_new = False
+        self.gen_access = False
+        self.gen_auth = False
+        self.gen_firewall = False
+        self.run_detection = False
+        self.size = 2000
+        self.access_size: int | None = None
+        self.auth_size: int | None = None
+        self.firewall_size: int | None = None
+        self.size_values: list[int] = []
+        self.gen_flag_order: list[str] = []
+
+    def init_log_sources(self) -> None:
+        """Initialize configured source lists for each log family."""
+        # each entry: {"name": str, "path": str, "format": str}
+        self.access_logs = [
+            {"name": "access", "path": "data/access.log", "format": "access"}
+        ]
+        self.firewall_logs = []
+        self.auth_logs = []
+
     def show_help(self):
         """Print CLI usage, flags, and auxiliary file-management commands."""
         help_text = """         Startup Usage: python main.py [options]
@@ -244,18 +240,17 @@ class Whiskers:
 
     def prepare_dataframe(self):
         """Load configured log files into a dataframe and compute features."""
+        from parser.log_parser import parse_auth_logs, parse_firewall_logs, parse_logs
+
         frames = []
-        for src in self.access_logs:
-            df_part = parse_logs(src["path"], source=src["name"])
-            frames.append(df_part)
-
-        for src in self.firewall_logs:
-            df_part = parse_firewall_logs(src["path"], source=src["name"])
-            frames.append(df_part)
-
-        for src in self.auth_logs:
-            df_part = parse_auth_logs(src["path"], source=src["name"])
-            frames.append(df_part)
+        parser_groups = (
+            (self.access_logs, parse_logs),
+            (self.firewall_logs, parse_firewall_logs),
+            (self.auth_logs, parse_auth_logs),
+        )
+        for sources, parser_fn in parser_groups:
+            for src in sources:
+                frames.append(parser_fn(src["path"], source=src["name"]))
 
         if frames:
             self.df = pd.concat(frames, ignore_index=True)
@@ -264,9 +259,6 @@ class Whiskers:
         else:
             self.df = pd.DataFrame()
 
-        total_files = (
-            len(self.access_logs) + len(self.firewall_logs) + len(self.auth_logs)
-        )
         self.features = feature_engineering.basic_aggregate_features(self.df)
 
     def run_detection_models(self):

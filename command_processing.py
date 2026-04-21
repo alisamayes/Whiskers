@@ -1,133 +1,100 @@
 import sys
+
 from analysis.stats import report_generation_stats, show_actor_distribution
 from simulator.log_manager import log_shredder, save_logs
 
 
-def process_commands(self, command):
-    """Parse command tokens, execute actions, and update Whiskers state."""
+_ACCESS_SRC = {"name": "access", "path": "data/access.log", "format": "access"}
+_AUTH_SRC = {"name": "auth", "path": "data/auth.log", "format": "auth"}
+_FIREWALL_SRC = {"name": "firewall", "path": "data/firewall.log", "format": "firewall"}
+
+
+def reset_parse_state(self) -> None:
     self.gen_flag_order = []
     self.size_values = []
 
-    # First pass: parse all arguments
+
+def set_detect_sources(self, *, access: bool, auth: bool, firewall: bool) -> None:
+    self.access_logs = [_ACCESS_SRC.copy()] if access else []
+    self.auth_logs = [_AUTH_SRC.copy()] if auth else []
+    self.firewall_logs = [_FIREWALL_SRC.copy()] if firewall else []
+
+
+def ensure_generate_sources(self) -> None:
+    if self.gen_auth and not self.auth_logs:
+        self.auth_logs = [_AUTH_SRC.copy()]
+    if self.gen_firewall and not self.firewall_logs:
+        self.firewall_logs = [_FIREWALL_SRC.copy()]
+
+
+def record_gen_flag(self, name: str) -> None:
+    if name not in self.gen_flag_order:
+        self.gen_flag_order.append(name)
+
+
+def parse_commands(self, command: list[str]) -> None:
     i = 0
     while i < len(command):
         arg = command[i].lower()
 
-        # General (matches help text order)
         if arg in ("-h", "--help"):
             self.show_help()
-
         elif arg in ("-ui", "--ui"):
             self.open_ui()
-
         elif arg in ("quit", "exit", "q", "-q", "--quit", "--exit"):
             print("Exiting Whiskers. Stay safe out there!")
             sys.exit(0)
-
-        # Log management
         elif arg == "save":
             save_logs(command[1:])
-            break
-
+            return
         elif arg == "shred":
             log_shredder(command[1:])
-            break
-
-        # Generation
+            return
         elif arg in ("-gac", "--generate_access"):
             self.gen_access = True
             self.gen_new = True
-            if "access" not in self.gen_flag_order:
-                self.gen_flag_order.append("access")
-
+            record_gen_flag(self, "access")
         elif arg in ("-gauth", "--generate_auth"):
             self.gen_auth = True
             self.gen_new = True
-            if "auth" not in self.gen_flag_order:
-                self.gen_flag_order.append("auth")
-            if not self.auth_logs:
-                self.auth_logs = [
-                    {"name": "auth", "path": "data/auth.log", "format": "auth"}
-                ]
-
+            record_gen_flag(self, "auth")
         elif arg in ("-gfire", "--generate_firewall"):
             self.gen_firewall = True
             self.gen_new = True
-            if "firewall" not in self.gen_flag_order:
-                self.gen_flag_order.append("firewall")
-            if not self.firewall_logs:
-                self.firewall_logs = [
-                    {
-                        "name": "firewall",
-                        "path": "data/firewall.log",
-                        "format": "firewall",
-                    }
-                ]
-
+            record_gen_flag(self, "firewall")
         elif arg in ("-g", "--generate"):
             self.gen_access = True
             self.gen_auth = True
             self.gen_new = True
-            if "access" not in self.gen_flag_order:
-                self.gen_flag_order.append("access")
-            if "auth" not in self.gen_flag_order:
-                self.gen_flag_order.append("auth")
-            if not self.auth_logs:
-                self.auth_logs = [
-                    {"name": "auth", "path": "data/auth.log", "format": "auth"}
-                ]
-
-        # Detection
+            record_gen_flag(self, "access")
+            record_gen_flag(self, "auth")
         elif arg in ("-d", "--detect"):
             self.run_detection = True
-            self.access_logs = [
-                {"name": "access", "path": "data/access.log", "format": "access"}
-            ]
-            self.auth_logs = [
-                {"name": "auth", "path": "data/auth.log", "format": "auth"}
-            ]
-
+            set_detect_sources(self, access=True, auth=True, firewall=False)
         elif arg in ("-dac", "--detect_access"):
             self.run_detection = True
-            self.access_logs = [
-                {"name": "access", "path": "data/access.log", "format": "access"}
-            ]
-            self.auth_logs = []
-            self.firewall_logs = []
-
+            set_detect_sources(self, access=True, auth=False, firewall=False)
         elif arg in ("-dauth", "--detect_auth"):
             self.run_detection = True
-            self.auth_logs = [
-                {"name": "auth", "path": "data/auth.log", "format": "auth"}
-            ]
-            self.access_logs = []
-            self.firewall_logs = []
-
+            set_detect_sources(self, access=False, auth=True, firewall=False)
         elif arg in ("-v", "--verbose"):
             self.mode = "verbose"
-
         elif arg in ("-al", "--access-log", "access-log"):
             try:
                 path = command[i + 1]
-                self.access_logs = [
-                    {"name": "access", "path": path, "format": "access"}
-                ]
+                self.access_logs = [{"name": "access", "path": path, "format": "access"}]
                 i += 1
             except IndexError:
                 print(
                     "Invalid or missing path for --access-log; keeping default data/access.log."
                 )
-
         elif arg in ("-au", "--auth-log"):
             try:
                 path = command[i + 1]
-                self.auth_logs.append(
-                    {"name": "auth", "path": path, "format": "auth"}
-                )
+                self.auth_logs.append({"name": "auth", "path": path, "format": "auth"})
                 i += 1
             except IndexError:
                 print("Invalid or missing path for --auth-log; ignoring.")
-
         elif arg in ("-fw", "--firewall-log"):
             try:
                 path = command[i + 1]
@@ -137,75 +104,84 @@ def process_commands(self, command):
                 i += 1
             except IndexError:
                 print("Invalid or missing path for --firewall-log; ignoring.")
-
-        # Checking
         elif arg in ("-c", "--check"):
             self.check = True
-
         elif arg in ("-as", "--actor-stats"):
             show_actor_distribution(self.profile_counts, self.log_source_counts)
-            break
-
+            return
         elif arg == "mouse":
             print(self.mouse_art_2[0])
-
         elif arg in ("-s", "--size"):
             offset, ok = process_size_commands(self, command, i)
             if not ok:
                 self.gen_new = False
-                break
+                return
             i += offset
-
         else:
             print("Unknown argument:", arg, " use -h or --help for command list")
 
         i += 1
 
-    if self.gen_new:
-        resolved_sizes = resolve_generation_sizes(
-            self,
-            gen_access=self.gen_access,
-            gen_auth=self.gen_auth,
-            gen_firewall=self.gen_firewall,
-        )
-        if resolved_sizes is None:
-            self.gen_new = False
-            return
 
-        self.access_size = resolved_sizes["access"]
-        self.auth_size = resolved_sizes["auth"]
-        self.firewall_size = resolved_sizes["firewall"]
-        self.size = self.access_size
-
-        print("\n=============== Running Generation ===============\n")
-        result = self.run_generation(
-            sizes=[resolved_sizes["access"], resolved_sizes["auth"], resolved_sizes["firewall"]],
-            users=100,
-            gen_access=self.gen_access,
-            gen_auth=self.gen_auth,
-            gen_firewall=self.gen_firewall,
-        )
-        print(report_generation_stats(result["attack_counters"]))
+def run_generation_if_requested(self) -> None:
+    if not self.gen_new:
+        return
+    ensure_generate_sources(self)
+    resolved_sizes = resolve_generation_sizes(
+        self,
+        gen_access=self.gen_access,
+        gen_auth=self.gen_auth,
+        gen_firewall=self.gen_firewall,
+    )
+    if resolved_sizes is None:
         self.gen_new = False
-        self.gen_access = False
-        self.gen_auth = False
-        self.gen_firewall = False
-        self.mode = "normal"
+        return
 
-    if self.run_detection:
-        print("\n=============== Running Detection ===============\n")
-        print(self.run_detection_pipeline())
-        self.run_detection = False
-        self.access_logs = [
-            {"name": "access", "path": "data/access.log", "format": "access"}
-        ]
-        self.auth_logs = []
-        self.firewall_logs = []
+    self.access_size = resolved_sizes["access"]
+    self.auth_size = resolved_sizes["auth"]
+    self.firewall_size = resolved_sizes["firewall"]
+    self.size = self.access_size
 
-    if self.check:
-        print("\n=============== Running Checking ===============\n")
-        print(self.run_check_report())
-        self.check = False
+    print("\n=============== Running Generation ===============\n")
+    result = self.run_generation(
+        sizes=[resolved_sizes["access"], resolved_sizes["auth"], resolved_sizes["firewall"]],
+        users=100,
+        gen_access=self.gen_access,
+        gen_auth=self.gen_auth,
+        gen_firewall=self.gen_firewall,
+    )
+    print(report_generation_stats(result["attack_counters"]))
+    self.gen_new = False
+    self.gen_access = False
+    self.gen_auth = False
+    self.gen_firewall = False
+    self.mode = "normal"
+
+
+def run_detection_if_requested(self) -> None:
+    if not self.run_detection:
+        return
+    print("\n=============== Running Detection ===============\n")
+    print(self.run_detection_pipeline())
+    self.run_detection = False
+    set_detect_sources(self, access=True, auth=False, firewall=False)
+
+
+def run_check_if_requested(self) -> None:
+    if not self.check:
+        return
+    print("\n=============== Running Checking ===============\n")
+    print(self.run_check_report())
+    self.check = False
+
+
+def process_commands(self, command):
+    """Parse command tokens, execute actions, and update Whiskers state."""
+    reset_parse_state(self)
+    parse_commands(self, command)
+    run_generation_if_requested(self)
+    run_detection_if_requested(self)
+    run_check_if_requested(self)
 
 
 def process_size_commands(self, command, index):
@@ -239,7 +215,9 @@ def process_size_commands(self, command, index):
     return len(self.size_values), True
 
 
-def resolve_generation_sizes(self, *, gen_access: bool, gen_auth: bool, gen_firewall: bool) -> dict[str, int] | None:
+def resolve_generation_sizes(
+    self, *, gen_access: bool, gen_auth: bool, gen_firewall: bool
+) -> dict[str, int] | None:
     """Resolve per-log generation sizes from parsed CLI options."""
     selected = []
     if gen_access:

@@ -6,19 +6,16 @@ with tools such as vi or nano, meaning the user would have to go outside the sco
 """
 
 from parser.log_parser import read_text_lines_safe
-from typing import TypedDict
 
 from PyQt6.QtCore import QStringListModel
 from PyQt6.QtWidgets import (
-    QHBoxLayout,
-    QLabel,
     QListView,
     QPushButton,
     QVBoxLayout,
     QWidget,
 )
 
-from GUI.config import active_dark_green
+from GUI.log_type_selector import LogTypeSelector
 
 # Tight vertical spacing for log lines (QListView default padding is roomy).
 _LOG_VIEW_STYLE = """
@@ -32,12 +29,6 @@ _LOG_VIEW_STYLE = """
         margin: 0px;
     }
 """
-
-
-class _LogToggleEntry(TypedDict):
-    state: bool
-    button: QPushButton
-
 
 class LogReaderPage(QWidget):
     def __init__(self, whiskers_agent, parent=None):
@@ -57,27 +48,8 @@ class LogReaderPage(QWidget):
         self.control_box = QVBoxLayout()
         self.reader_box = QVBoxLayout()
         # -----------------------------------------
-        self.type_line = QHBoxLayout()
-        self.types_label = QLabel("Log Types:")
-        self.access_log_button = QPushButton("Access")
-        self.access_log_button.clicked.connect(
-            lambda: self.toggle_button(self.access_log_button)
-        )
-        self.auth_log_button = QPushButton("Auth")
-        self.auth_log_button.clicked.connect(
-            lambda: self.toggle_button(self.auth_log_button)
-        )
-        self.firewall_log_button = QPushButton("Firewall")
-        self.firewall_log_button.clicked.connect(
-            lambda: self.toggle_button(self.firewall_log_button)
-        )
-
-        self.type_line.addWidget(self.types_label)
-        self.type_line.addWidget(self.access_log_button)
-        self.type_line.addWidget(self.auth_log_button)
-        self.type_line.addWidget(self.firewall_log_button)
-
-        self.control_box.addLayout(self.type_line)
+        self.log_type_selector = LogTypeSelector(default_access=True)
+        self.control_box.addWidget(self.log_type_selector)
         # --------------------------------------------
         self.load_button = QPushButton("LOAD")
         self.load_button.clicked.connect(self.load_log_files)
@@ -95,27 +67,6 @@ class LogReaderPage(QWidget):
 
         # ============================================
 
-        # Class variables
-
-        self.log_types: dict[str, _LogToggleEntry] = {
-            "Access": {"state": False, "button": self.access_log_button},
-            "Auth": {"state": False, "button": self.auth_log_button},
-            "Firewall": {"state": False, "button": self.firewall_log_button},
-        }
-
-        self.toggle_button(self.access_log_button)
-
-    def toggle_button(self, button: QPushButton):
-        text = button.text()
-        entry = self.log_types[text]
-
-        entry["state"] = not entry["state"]
-        button_ref = entry["button"]
-        if entry["state"]:
-            button_ref.setStyleSheet(f"color: {active_dark_green};")
-        else:
-            button_ref.setStyleSheet("")
-
     def load_log_files(self):
         """
         Allows the user to load one or more types of log files and display it in a log reader, as opposed to having
@@ -123,11 +74,12 @@ class LogReaderPage(QWidget):
         """
 
         log_files = []
-        if self.log_types["Access"]["state"]:
+        states = self.log_type_selector.selected_states()
+        if states["Access"]:
             log_files.append("data/access.log")
-        if self.log_types["Auth"]["state"]:
+        if states["Auth"]:
             log_files.append("data/auth.log")
-        if self.log_types["Firewall"]["state"]:
+        if states["Firewall"]:
             log_files.append("data/firewall.log")
 
         if not log_files:

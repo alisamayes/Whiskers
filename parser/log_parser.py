@@ -79,7 +79,27 @@ def read_text_lines_safe(
         return [], msg
 
 
-def _parse_syslog_timestamp(ts_raw: str) -> pd.Timestamp:
+def finalize_dataframe(
+    rows: list[dict],
+    *,
+    timestamp_col: str = "timestamp",
+    timestamp_format: str | None = None,
+) -> pd.DataFrame:
+    """Build dataframe, normalize timestamps, drop invalid rows, and sort."""
+    df = pd.DataFrame(rows)
+    if df.empty or timestamp_col not in df.columns:
+        return df
+    df[timestamp_col] = pd.to_datetime(
+        df[timestamp_col],
+        format=timestamp_format,
+        utc=True,
+        errors="coerce",
+    )
+    df = df.dropna(subset=[timestamp_col])
+    return df.sort_values(timestamp_col)
+
+
+def parse_syslog_timestamp(ts_raw: str) -> pd.Timestamp:
     """Parse syslog timestamp string to a timezone-aware UTC pandas Timestamp."""
     ts_raw = ts_raw.strip()
     if not ts_raw:
@@ -94,7 +114,7 @@ def _parse_syslog_timestamp(ts_raw: str) -> pd.Timestamp:
         return pd.to_datetime(ts_raw, utc=True, errors="coerce")
 
 
-def _auth_row(
+def auth_row(
     *,
     ip: str,
     timestamp: pd.Timestamp,
@@ -133,13 +153,13 @@ def _auth_row(
     return row
 
 
-def _parse_sshd_body(body: str, ts: pd.Timestamp, log_source: str) -> dict | None:
+def parse_sshd_body(body: str, ts: pd.Timestamp, log_source: str) -> dict | None:
     """Map OpenSSH log message body to one common-schema row, or None if skipped."""
 
     m = _SSH_FAILED_INVALID_USER.search(body)
     if m:
         user, ip, port_s = m.groups()
-        return _auth_row(
+        return auth_row(
             ip=ip,
             timestamp=ts,
             method="SSH",
@@ -158,7 +178,7 @@ def _parse_sshd_body(body: str, ts: pd.Timestamp, log_source: str) -> dict | Non
         user, ip, port_s = m.groups()
         if user == "invalid":
             return None
-        return _auth_row(
+        return auth_row(
             ip=ip,
             timestamp=ts,
             method="SSH",
@@ -175,7 +195,7 @@ def _parse_sshd_body(body: str, ts: pd.Timestamp, log_source: str) -> dict | Non
     m = _SSH_INVALID_USER.search(body)
     if m:
         user, ip, port_s = m.groups()
-        return _auth_row(
+        return auth_row(
             ip=ip,
             timestamp=ts,
             method="SSH",
@@ -192,7 +212,7 @@ def _parse_sshd_body(body: str, ts: pd.Timestamp, log_source: str) -> dict | Non
     m = _SSH_ACCEPTED.search(body)
     if m:
         user, ip, port_s = m.groups()
-        return _auth_row(
+        return auth_row(
             ip=ip,
             timestamp=ts,
             method="SSH",
@@ -209,13 +229,12 @@ def _parse_sshd_body(body: str, ts: pd.Timestamp, log_source: str) -> dict | Non
     return None
 
 
-def _parse_sudo_body(body: str, ts: pd.Timestamp, log_source: str) -> dict | None:
+def parse_sudo_body(body: str, ts: pd.Timestamp, log_source: str) -> dict | None:
     m = _SUDO_COMMAND.match(body.strip())
     if m:
-        invoking, target_user, command = m.groups()
-        command = command.strip()
+        invoking, target_user, _ = m.groups()
         path = "sudo/command"
-        return _auth_row(
+        return auth_row(
             ip="127.0.0.1",
             timestamp=ts,
             method="SUDO",
@@ -236,7 +255,7 @@ def _parse_sudo_body(body: str, ts: pd.Timestamp, log_source: str) -> dict | Non
             ip = m_ip.group(1)
         ruser_m = re.search(r"\bruser=(\S+)", body)
         auth_user = ruser_m.group(1) if ruser_m else None
-        return _auth_row(
+        return auth_row(
             ip=ip,
             timestamp=ts,
             method="SUDO",
@@ -292,29 +311,25 @@ def parse_auth_logs(file, source: str = "auth"):
         else:
             continue
 
-        ts = _parse_syslog_timestamp(ts_raw)
+        ts = parse_syslog_timestamp(ts_raw)
         if pd.isna(ts):
             continue
 
         row_dict = None
         sshd_m = _SSHD_PAYLOAD.match(msg)
         if sshd_m:
-            row_dict = _parse_sshd_body(sshd_m.group(1), ts, source)
+            row_dict = parse_sshd_body(sshd_m.group(1), ts, source)
         else:
             sudo_m = _SUDO_PAYLOAD.match(msg)
             if sudo_m:
-                row_dict = _parse_sudo_body(sudo_m.group(1), ts, source)
+                row_dict = parse_sudo_body(sudo_m.group(1), ts, source)
 
         if row_dict is not None:
             row_dict["classification"] = classification
             row_dict["count"] = count
             rows.append(row_dict)
 
-    df = pd.DataFrame(rows)
-    if not df.empty:
-        df = df.sort_values("timestamp")
-
-    return df
+    return finalize_dataframe(rows)
 
 
 def parse_logs(file, source: str = "access", *, quiet: bool = False):
@@ -360,19 +375,10 @@ def parse_logs(file, source: str = "access", *, quiet: bool = False):
                 }
             )
 
-    df = pd.DataFrame(logs)
-
-    if not df.empty:
-        df["timestamp"] = pd.to_datetime(
-            df["timestamp"],
-            format="%d/%b/%Y:%H:%M:%S %z",
-            utc=True,
-            errors="coerce",
-        )
-        df = df.dropna(subset=["timestamp"])
-        df = df.sort_values("timestamp")
-
-    return df
+    return finalize_dataframe(
+        logs,
+        timestamp_format="%d/%b/%Y:%H:%M:%S %z",
+    )
 
 
 def parse_firewall_logs(file, source: str = "firewall"):
@@ -411,11 +417,4 @@ def parse_firewall_logs(file, source: str = "firewall"):
             }
         )
 
-    df = pd.DataFrame(rows)
-
-    if not df.empty:
-        df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True, errors="coerce")
-        df = df.dropna(subset=["timestamp"])
-        df = df.sort_values("timestamp")
-
-    return df
+    return finalize_dataframe(rows)

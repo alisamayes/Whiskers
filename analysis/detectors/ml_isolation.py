@@ -20,7 +20,7 @@ from analysis.feature_engineering import basic_aggregate_features
 from .base import BaseDetector, ThreatAlert
 
 
-def _robust_left_tail_threshold(scores: np.ndarray, mad_multiplier: float) -> float:
+def robust_left_tail_threshold(scores: np.ndarray, mad_multiplier: float) -> float:
     """Threshold on sklearn IF score_samples: lower = more anomalous.
 
     Uses median minus mad_multiplier * robust sigma (MAD-based). Fewer false
@@ -35,7 +35,7 @@ def _robust_left_tail_threshold(scores: np.ndarray, mad_multiplier: float) -> fl
     return med - mad_multiplier * sigma
 
 
-def _behavior_enriched_features(
+def behavior_enriched_features(
     df: pd.DataFrame, features: pd.DataFrame
 ) -> pd.DataFrame:
     """Add behaviour-only columns (no log classification labels)."""
@@ -66,7 +66,7 @@ def _behavior_enriched_features(
     return out.replace([np.inf, -np.inf], np.nan).fillna(0.0)
 
 
-def _behavioral_risk(feat: pd.DataFrame) -> pd.ndarray:
+def behavioral_risk(feat: pd.DataFrame) -> pd.ndarray:
     """Average percentile rank of attack-shaped signals (0–1), batch-relative."""
 
     def pct(col: str) -> pd.Series:
@@ -126,13 +126,13 @@ class IsolationForestDetector(BaseDetector):
             self.last_run_summary = None
             return alerts
 
-        features = _behavior_enriched_features(df, features)
+        features = behavior_enriched_features(df, features)
         feature_cols = features.select_dtypes(include=[np.number]).columns.tolist()
         X_df = features[feature_cols]
         ips = features.index.to_list()
         n = len(features)
 
-        risk = _behavioral_risk(features)
+        risk = behavioral_risk(features)
 
         scaler = StandardScaler()
         X = scaler.fit_transform(X_df.values)
@@ -149,7 +149,7 @@ class IsolationForestDetector(BaseDetector):
             )
             model.fit(X)
             scores = model.score_samples(X)
-            cutoff = _robust_left_tail_threshold(scores, self.mad_multiplier)
+            cutoff = robust_left_tail_threshold(scores, self.mad_multiplier)
             if_outlier = scores < cutoff
         else:
             scores = np.zeros(n)

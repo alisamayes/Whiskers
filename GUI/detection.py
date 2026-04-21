@@ -5,16 +5,9 @@ This page provides a button-driven way to run the same detection pipeline that t
 would run for the `-d/--detect` command.
 """
 
-from typing import TypedDict
+from PyQt6.QtWidgets import QLabel, QPushButton, QVBoxLayout, QWidget
 
-from PyQt6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
-
-from GUI.config import active_dark_green
-
-
-class _LogToggleEntry(TypedDict):
-    state: bool
-    button: QPushButton
+from GUI.log_type_selector import LogTypeSelector
 
 
 class DetectionPage(QWidget):
@@ -34,27 +27,9 @@ class DetectionPage(QWidget):
 
         self.detect_box = QVBoxLayout()
         # -----------------------------------------
-        self.type_line = QHBoxLayout()
-        self.types_label = QLabel("Log Types:")
-        self.access_log_button = QPushButton("Access")
-        self.access_log_button.clicked.connect(
-            lambda: self.toggle_button(self.access_log_button)
-        )
-        self.auth_log_button = QPushButton("Auth")
-        self.auth_log_button.clicked.connect(
-            lambda: self.toggle_button(self.auth_log_button)
-        )
-        self.firewall_log_button = QPushButton("Firewall")
-        self.firewall_log_button.clicked.connect(
-            lambda: self.toggle_button(self.firewall_log_button)
-        )
-
-        self.type_line.addWidget(self.types_label)
-        self.type_line.addWidget(self.access_log_button)
-        self.type_line.addWidget(self.auth_log_button)
-        self.type_line.addWidget(self.firewall_log_button)
-
-        self.detect_box.addLayout(self.type_line)
+        self.log_type_selector = LogTypeSelector(default_access=True)
+        self.log_type_selector.selection_changed.connect(self.apply_log_toggle)
+        self.detect_box.addWidget(self.log_type_selector)
         # --------------------------------------------
         self.detect_button = QPushButton("DETECT")
         self.detect_button.clicked.connect(self.detect)
@@ -72,29 +47,6 @@ class DetectionPage(QWidget):
         self.setLayout(self.main_layout)
 
         # ============================================
-
-        # Class variables
-
-        self.log_types: dict[str, _LogToggleEntry] = {
-            "Access": {"state": False, "button": self.access_log_button},
-            "Auth": {"state": False, "button": self.auth_log_button},
-            "Firewall": {"state": False, "button": self.firewall_log_button},
-        }
-
-        self.toggle_button(self.access_log_button)
-
-    def toggle_button(self, button: QPushButton):
-        """Toggle a source button and propagate state to the Whiskers engine."""
-        text = button.text()
-        entry = self.log_types[text]
-
-        entry["state"] = not entry["state"]
-        if entry["state"]:
-            entry["button"].setStyleSheet(f"color: {active_dark_green};")
-        else:
-            entry["button"].setStyleSheet("")
-
-        self.apply_log_toggle(text, entry["state"])
 
     def apply_log_toggle(self, log_type: str, enabled: bool) -> None:
         """Enable or disable one configured log source on the engine."""
