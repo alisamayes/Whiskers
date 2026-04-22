@@ -34,6 +34,8 @@ class DetectionPage(QWidget):
         self.detect_button = QPushButton("DETECT")
         self.detect_button.clicked.connect(self.detect)
         self.detect_box.addWidget(self.detect_button)
+        # Keep controls compact at the top of the page.
+        self.detect_box.addStretch(1)
 
         # ============================================
 
@@ -42,8 +44,8 @@ class DetectionPage(QWidget):
         self.true_attack_stats = QLabel("")
         self.stats_box.addWidget(self.true_attack_stats)
 
-        self.main_layout.addLayout(self.detect_box)
-        self.main_layout.addLayout(self.stats_box)
+        self.main_layout.addLayout(self.detect_box, stretch=0)
+        self.main_layout.addLayout(self.stats_box, stretch=1)
         self.setLayout(self.main_layout)
 
         # ============================================

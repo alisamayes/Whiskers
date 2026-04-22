@@ -24,6 +24,8 @@ class CheckingPage(QWidget):
         self.check_button = QPushButton("CHECK")
         self.check_button.clicked.connect(self.run_check)
         self.check_box.addWidget(self.check_button)
+        # Keep controls compact at the top of the page.
+        self.check_box.addStretch(1)
 
         self.stats_box = QVBoxLayout()
         self.report_stats = QLabel("")
@@ -36,8 +38,8 @@ class CheckingPage(QWidget):
         self.stats_box.addWidget(self.info_label)
         self.stats_box.addWidget(self.info_stats)
 
-        self.main_layout.addLayout(self.check_box)
-        self.main_layout.addLayout(self.stats_box)
+        self.main_layout.addLayout(self.check_box, stretch=0)
+        self.main_layout.addLayout(self.stats_box, stretch=1)
         self.setLayout(self.main_layout)
 
     def refresh_from_engine(self, w) -> None:

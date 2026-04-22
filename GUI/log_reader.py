@@ -54,6 +54,8 @@ class LogReaderPage(QWidget):
         self.load_button = QPushButton("LOAD")
         self.load_button.clicked.connect(self.load_log_files)
         self.control_box.addWidget(self.load_button)
+        # Keep controls compact at the top of the page.
+        self.control_box.addStretch(1)
 
         self.log_view = QListView()
         self.log_view.setStyleSheet(_LOG_VIEW_STYLE)
@@ -61,7 +63,7 @@ class LogReaderPage(QWidget):
         self.log_view.setModel(self._log_model)
         self.reader_box.addWidget(self.log_view, stretch=1)
 
-        self.main_layout.addLayout(self.control_box)
+        self.main_layout.addLayout(self.control_box, stretch=0)
         self.main_layout.addLayout(self.reader_box, stretch=1)
         self.setLayout(self.main_layout)
 

@@ -54,6 +54,8 @@ class GenPage(QWidget):
         self.generate_button = QPushButton("GENERATE")
         self.generate_button.clicked.connect(self.generate)
         self.gen_box.addWidget(self.generate_button)
+        # Keep controls compact at the top of the page.
+        self.gen_box.addStretch(1)
 
         # ============================================
 
@@ -67,8 +69,8 @@ class GenPage(QWidget):
         self.stats_box.addWidget(self.actor_labels)
         self.stats_box.addWidget(self.actor_stats)
 
-        self.main_layout.addLayout(self.gen_box)
-        self.main_layout.addLayout(self.stats_box)
+        self.main_layout.addLayout(self.gen_box, stretch=0)
+        self.main_layout.addLayout(self.stats_box, stretch=1)
         self.setLayout(self.main_layout)
 
         # ============================================
