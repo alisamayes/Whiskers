@@ -1,7 +1,7 @@
 import sys
 
 from analysis.stats import report_generation_stats, show_actor_distribution
-from simulator.log_manager import log_shredder, save_logs
+from simulator.log_manager import save_logs, shred_logs
 
 
 _ACCESS_SRC = {"name": "access", "path": "data/access.log", "format": "access"}
@@ -45,10 +45,10 @@ def parse_commands(self, command: list[str]) -> None:
             print("Exiting Whiskers. Stay safe out there!")
             sys.exit(0)
         elif arg == "save":
-            save_logs(command[1:])
+            save_logs(self, command[1:])
             return
         elif arg == "shred":
-            log_shredder(command[1:])
+            shred_logs(self, command[1:])
             return
         elif arg in ("-gac", "--generate_access"):
             self.gen_access = True

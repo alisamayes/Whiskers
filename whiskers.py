@@ -231,7 +231,9 @@ class Whiskers:
             -as, --actor-stats              Show distribution of actor profiles in the generated logs
 
             Log managment:
-            save [filename] [directory]     Save the current access log to a new file with optional directory (default directory is ./data/)
+            save [log_type] [filename] [directory]
+                                            Save the currently configured source for
+                                            access/auth/firewall to a new file.
             shred [filename] [directory]    Delete a log file that is no longer needed (default directory is ./data/)
                     
         """

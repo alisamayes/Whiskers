@@ -3,7 +3,7 @@ Reusable log-type toggle row for Whiskers GUI pages.
 """
 
 from PyQt6.QtCore import pyqtSignal
-from PyQt6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QWidget
+from PyQt6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QSizePolicy, QWidget
 
 from GUI.config import active_dark_green
 
@@ -19,12 +19,18 @@ class LogTypeSelector(QWidget):
         self._buttons: dict[str, QPushButton] = {}
 
         row = QHBoxLayout(self)
-        row.addWidget(QLabel("Log Types:"))
+        label = QLabel("Log Types:")
+        label.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        row.addWidget(label, stretch=0)
 
         for name in ("Access", "Auth", "Firewall"):
             button = QPushButton(name)
+            button.setSizePolicy(
+                QSizePolicy.Policy.Expanding,
+                QSizePolicy.Policy.Fixed,
+            )
             button.clicked.connect(lambda _checked=False, n=name: self.toggle(n))
-            row.addWidget(button)
+            row.addWidget(button, stretch=1)
             self._buttons[name] = button
 
         if default_access:

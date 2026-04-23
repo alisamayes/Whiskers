@@ -203,7 +203,9 @@ Checking:
 -as, --actor-stats              Show actor profile distribution
 
 Log management:
-save [filename] [directory]     Save current access log to new file
+save [log_type] [filename] [directory]
+                                Save currently configured access/auth/firewall
+                                source log to new file
 shred [filename] [directory]    Delete log file
 ```
 

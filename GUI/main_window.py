@@ -16,6 +16,7 @@ from GUI.checking import CheckingPage
 from GUI.detection import DetectionPage
 from GUI.generation import GenPage
 from GUI.log_reader import LogReaderPage
+from GUI.file_manager import FileManagerPage
 
 _ASSETS = Path(__file__).resolve().parent.parent / "assets"
 
@@ -70,13 +71,14 @@ class ApplicationWindow(QMainWindow):
         self.detect = DetectionPage(self.whiskers)
         self.checking = CheckingPage(self.whiskers)
         self.reader = LogReaderPage(self.whiskers)
-
+        self.file_manager = FileManagerPage(self.whiskers)
         self.tabs.addTab(self.home, "Home")
         self.tabs.addTab(self.gen, "Generator")
         self.tabs.addTab(self.detect, "Detector")
         self.tabs.addTab(self.checking, "Checking")
         self.tabs.addTab(self.reader, "Log Reader")
-
+        self.tabs.addTab(self.file_manager, "File Manager")
+        
     def closeEvent(self, event: QCloseEvent | None) -> None:
         if event is None:
             return
