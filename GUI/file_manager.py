@@ -9,6 +9,7 @@ from PyQt6.QtWidgets import (
     QMessageBox,
     QLabel,
     QPushButton,
+    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
@@ -30,18 +31,14 @@ class FileManagerPage(QWidget):
         self.whiskers = whiskers_agent
 
         self.main_layout = QVBoxLayout(self)
-        self.directory_box = QVBoxLayout()
 
         self.access_selector = FileSelector(self.whiskers, "access")
         self.auth_selector = FileSelector(self.whiskers, "auth")
         self.firewall_selector = FileSelector(self.whiskers, "firewall")
 
-        self.directory_box.addWidget(self.access_selector)
-        self.directory_box.addWidget(self.auth_selector)
-        self.directory_box.addWidget(self.firewall_selector)
-        self.directory_box.addStretch(1)
-
-        self.main_layout.addLayout(self.directory_box)
+        self.main_layout.addWidget(self.access_selector, stretch=1)
+        self.main_layout.addWidget(self.auth_selector, stretch=1)
+        self.main_layout.addWidget(self.firewall_selector, stretch=1)
 
 
 class FileSelector(QWidget):
@@ -70,6 +67,7 @@ class FileSelector(QWidget):
         self.type_label = QLabel(f"{self.data['name']} log:")
         self.path_label = QLabel(self.data["path"])
         self.path_label.setWordWrap(True)
+        self.path_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
 
         self.save_button = QPushButton("Save")
         self.save_button.clicked.connect(self.save_FE)
@@ -77,14 +75,16 @@ class FileSelector(QWidget):
         self.load_button.clicked.connect(self.load_FE)
         self.shred_button = QPushButton("Shred")
         self.shred_button.clicked.connect(self.shred_FE)
+        self.save_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.load_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.shred_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
         info_line.addWidget(self.type_label, stretch=0)
         info_line.addWidget(self.path_label, stretch=1)
 
-        button_line.addWidget(self.save_button)
-        button_line.addWidget(self.load_button)
-        button_line.addWidget(self.shred_button)
-        button_line.addStretch(1)
+        button_line.addWidget(self.save_button, stretch=1)
+        button_line.addWidget(self.load_button, stretch=1)
+        button_line.addWidget(self.shred_button, stretch=1)
 
         root.addLayout(info_line)
         root.addLayout(button_line)

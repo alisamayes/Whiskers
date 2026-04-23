@@ -1,4 +1,5 @@
 import sys
+from collections.abc import Callable
 
 from analysis.stats import report_generation_stats, show_actor_distribution
 from simulator.log_manager import save_logs, shred_logs
@@ -7,6 +8,129 @@ from simulator.log_manager import save_logs, shred_logs
 _ACCESS_SRC = {"name": "access", "path": "data/access.log", "format": "access"}
 _AUTH_SRC = {"name": "auth", "path": "data/auth.log", "format": "auth"}
 _FIREWALL_SRC = {"name": "firewall", "path": "data/firewall.log", "format": "firewall"}
+_COMMAND_HANDLERS: dict[str, Callable] = {}
+
+
+def command_handler(*aliases: str) -> Callable:
+    """Register a parse_commands handler for one or more command aliases."""
+
+    def decorator(func: Callable) -> Callable:
+        for alias in aliases:
+            _COMMAND_HANDLERS[alias.lower()] = func
+        return func
+
+    return decorator
+
+
+@command_handler("-h", "--help")
+def handle_help(self, _command: list[str], _index: int) -> bool:
+    self.show_help()
+    return False
+
+
+@command_handler("-ui", "--ui")
+def handle_ui(self, _command: list[str], _index: int) -> bool:
+    self.open_ui()
+    return False
+
+
+@command_handler("quit", "exit", "q", "-q", "--quit", "--exit")
+def handle_quit(_self, _command: list[str], _index: int) -> bool:
+    print("Exiting Whiskers. Stay safe out there!")
+    sys.exit(0)
+
+
+@command_handler("save")
+def handle_save(self, command: list[str], _index: int) -> bool:
+    """Run the save command and stop further parsing."""
+    save_logs(self, command[1:])
+    return True
+
+
+@command_handler("shred")
+def handle_shred(self, command: list[str], _index: int) -> bool:
+    """Run the shred command and stop further parsing."""
+    shred_logs(self, command[1:])
+    return True
+
+
+@command_handler("-gac", "--generate_access")
+def handle_generate_access(self, _command: list[str], _index: int) -> bool:
+    self.gen_access = True
+    self.gen_new = True
+    record_gen_flag(self, "access")
+    return False
+
+
+@command_handler("-gauth", "--generate_auth")
+def handle_generate_auth(self, _command: list[str], _index: int) -> bool:
+    self.gen_auth = True
+    self.gen_new = True
+    record_gen_flag(self, "auth")
+    return False
+
+
+@command_handler("-gfire", "--generate_firewall")
+def handle_generate_firewall(self, _command: list[str], _index: int) -> bool:
+    self.gen_firewall = True
+    self.gen_new = True
+    record_gen_flag(self, "firewall")
+    return False
+
+
+@command_handler("-g", "--generate")
+def handle_generate(self, _command: list[str], _index: int) -> bool:
+    self.gen_access = True
+    self.gen_auth = True
+    self.gen_new = True
+    record_gen_flag(self, "access")
+    record_gen_flag(self, "auth")
+    return False
+
+
+@command_handler("-d", "--detect")
+def handle_detect(self, _command: list[str], _index: int) -> bool:
+    self.run_detection = True
+    set_detect_sources(self, access=True, auth=True, firewall=False)
+    return False
+
+
+@command_handler("-dac", "--detect_access")
+def handle_detect_access(self, _command: list[str], _index: int) -> bool:
+    self.run_detection = True
+    set_detect_sources(self, access=True, auth=False, firewall=False)
+    return False
+
+
+@command_handler("-dauth", "--detect_auth")
+def handle_detect_auth(self, _command: list[str], _index: int) -> bool:
+    self.run_detection = True
+    set_detect_sources(self, access=False, auth=True, firewall=False)
+    return False
+
+
+@command_handler("-v", "--verbose")
+def handle_verbose(self, _command: list[str], _index: int) -> bool:
+    self.mode = "verbose"
+    return False
+
+
+@command_handler("-c", "--check")
+def handle_check(self, _command: list[str], _index: int) -> bool:
+    self.check = True
+    return False
+
+
+@command_handler("-as", "--actor-stats")
+def handle_actor_stats(self, _command: list[str], _index: int) -> bool:
+    show_actor_distribution(self.profile_counts, self.log_source_counts)
+    return True
+
+
+@command_handler("mouse")
+def handle_mouse(self, _command: list[str], _index: int) -> bool:
+    print(self.mouse_art_2[0])
+    return False
 
 
 def reset_parse_state(self) -> None:
@@ -36,50 +160,15 @@ def parse_commands(self, command: list[str]) -> None:
     i = 0
     while i < len(command):
         arg = command[i].lower()
+        handler = _COMMAND_HANDLERS.get(arg)
+        if handler is not None:
+            should_stop = handler(self, command, i)
+            if should_stop:
+                return
+            i += 1
+            continue
 
-        if arg in ("-h", "--help"):
-            self.show_help()
-        elif arg in ("-ui", "--ui"):
-            self.open_ui()
-        elif arg in ("quit", "exit", "q", "-q", "--quit", "--exit"):
-            print("Exiting Whiskers. Stay safe out there!")
-            sys.exit(0)
-        elif arg == "save":
-            save_logs(self, command[1:])
-            return
-        elif arg == "shred":
-            shred_logs(self, command[1:])
-            return
-        elif arg in ("-gac", "--generate_access"):
-            self.gen_access = True
-            self.gen_new = True
-            record_gen_flag(self, "access")
-        elif arg in ("-gauth", "--generate_auth"):
-            self.gen_auth = True
-            self.gen_new = True
-            record_gen_flag(self, "auth")
-        elif arg in ("-gfire", "--generate_firewall"):
-            self.gen_firewall = True
-            self.gen_new = True
-            record_gen_flag(self, "firewall")
-        elif arg in ("-g", "--generate"):
-            self.gen_access = True
-            self.gen_auth = True
-            self.gen_new = True
-            record_gen_flag(self, "access")
-            record_gen_flag(self, "auth")
-        elif arg in ("-d", "--detect"):
-            self.run_detection = True
-            set_detect_sources(self, access=True, auth=True, firewall=False)
-        elif arg in ("-dac", "--detect_access"):
-            self.run_detection = True
-            set_detect_sources(self, access=True, auth=False, firewall=False)
-        elif arg in ("-dauth", "--detect_auth"):
-            self.run_detection = True
-            set_detect_sources(self, access=False, auth=True, firewall=False)
-        elif arg in ("-v", "--verbose"):
-            self.mode = "verbose"
-        elif arg in ("-al", "--access-log", "access-log"):
+        if arg in ("-al", "--access-log", "access-log"):
             try:
                 path = command[i + 1]
                 self.access_logs = [{"name": "access", "path": path, "format": "access"}]
@@ -104,13 +193,6 @@ def parse_commands(self, command: list[str]) -> None:
                 i += 1
             except IndexError:
                 print("Invalid or missing path for --firewall-log; ignoring.")
-        elif arg in ("-c", "--check"):
-            self.check = True
-        elif arg in ("-as", "--actor-stats"):
-            show_actor_distribution(self.profile_counts, self.log_source_counts)
-            return
-        elif arg == "mouse":
-            print(self.mouse_art_2[0])
         elif arg in ("-s", "--size"):
             offset, ok = process_size_commands(self, command, i)
             if not ok:
