@@ -17,11 +17,12 @@ ACCESS_PATTERN = (
 )
 
 
-# Simple firewall log pattern (example):
-# 2026-03-10T12:00:01Z FIREWALL ALLOW src=1.2.3.4 dst=5.6.7.8 dport=443 proto=tcp bytes=1234
+# Firewall pattern (Whiskers simulator format):
+# 2026-03-10T12:00:01Z host=fw-edge-01 FIREWALL action=ALLOW src=1.2.3.4 sport=43210 dst=5.6.7.8 dport=443 proto=tcp packets=6 bytes=1234 normal 0
 FIREWALL_PATTERN = (
-    r"(\S+)\s+FIREWALL\s+(ALLOW|DENY)\s+src=([\d\.]+)\s+dst=([\d\.]+)\s+"
-    r"dport=(\d+)\s+proto=(\w+)\s+bytes=(\d+)"
+    r"(\S+)\s+host=(\S+)\s+FIREWALL\s+action=(ALLOW|DENY)\s+src=([\d\.]+)\s+"
+    r"sport=(\d+)\s+dst=([\d\.]+)\s+dport=(\d+)\s+proto=(\w+)\s+packets=(\d+)\s+"
+    r"bytes=(\d+)(?:\s+(\w+(?:_\w+)*)\s+(\d+))?"
 )
 
 # Linux auth / syslog (after hostname): sshd[pid]: ... or sudo: ...
@@ -382,11 +383,7 @@ def parse_logs(file, source: str = "access", *, quiet: bool = False):
 
 
 def parse_firewall_logs(file, source: str = "firewall"):
-    """Parse simple firewall logs into the common schema.
-
-    Example line:
-    2026-03-10T12:00:01Z FIREWALL ALLOW src=1.2.3.4 dst=5.6.7.8 dport=443 proto=tcp bytes=1234
-    """
+    """Parse firewall logs into the common schema."""
 
     rows = []
     lines, _ = read_text_lines_safe(file)
@@ -395,7 +392,20 @@ def parse_firewall_logs(file, source: str = "firewall"):
         if not m:
             continue
 
-        ts, action, src_ip, dst_ip, dport, proto, bytes_sent = m.groups()
+        (
+            ts,
+            fw_host,
+            action,
+            src_ip,
+            sport,
+            dst_ip,
+            dport,
+            proto,
+            packets,
+            bytes_sent,
+            classification,
+            count,
+        ) = m.groups()
 
         rows.append(
             {
@@ -404,15 +414,18 @@ def parse_firewall_logs(file, source: str = "firewall"):
                 # map firewall fields into the generic schema
                 "method": "FIREWALL",
                 "path": f"{dst_ip}:{dport}/{proto.lower()}",
-                "status": 0,
+                "status": 200 if action == "ALLOW" else 403,
                 "bytes_sent": int(bytes_sent),
                 "agent": "firewall",
-                "classification": action.lower(),  # allow / deny
-                "count": 0,
+                "classification": classification if classification is not None else "normal",
+                "count": int(count) if count is not None else 0,
                 "log_source": source,
+                "firewall_host": fw_host,
                 "dst_ip": dst_ip,
+                "src_port": int(sport),
                 "dst_port": int(dport),
                 "protocol": proto.lower(),
+                "packets": int(packets),
                 "action": action.upper(),
             }
         )

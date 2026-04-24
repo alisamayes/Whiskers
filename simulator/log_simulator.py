@@ -20,6 +20,13 @@ from simulator.auth_log_simulator import (
     auth_sudo_bruteforce_attack,
     generate_auth_normal_event,
 )
+from simulator.firewall_log_simulator import (
+    firewall_blocked_ssh_bruteforce,
+    firewall_denied_egress_exfiltration,
+    firewall_port_scan_attack,
+    firewall_syn_flood_attack,
+    generate_firewall_normal_event,
+)
 from simulator.user import IPS_ATTACK, PROFILES, User
 
 
@@ -60,6 +67,10 @@ def generate_logs(
         "auth_ssh_user_enum": 0,
         "auth_sudo_bruteforce": 0,
         "auth_privilege_escalation": 0,
+        "firewall_port_scan": 0,
+        "firewall_blocked_ssh_bruteforce": 0,
+        "firewall_syn_flood": 0,
+        "firewall_denied_egress_exfiltration": 0,
     }
 
     profile_counts = {
@@ -84,6 +95,7 @@ def generate_logs(
 
     access_line_count = 0
     auth_line_count = 0
+    firewall_line_count = 0
 
     used_ips: list[str] = []
     ips_that_attacked = {}
@@ -209,10 +221,38 @@ def generate_logs(
                 remaining[1] -= 1
 
             elif type_idx == 2:  # firewall
-                # Placeholder for firewall generation - not implemented yet
-                # For now, just decrement remaining without generating logs
+                if random.random() < 0.02:
+                    attack_kind = random.choice(
+                        [
+                            "firewall_port_scan",
+                            "firewall_blocked_ssh_bruteforce",
+                            "firewall_syn_flood",
+                            "firewall_denied_egress_exfiltration",
+                        ]
+                    )
+                    attack_counters[attack_kind] += 1
+                    atk_ip = random.choice(IPS_ATTACK)
+                    if attack_kind == "firewall_port_scan":
+                        attack_fn = firewall_port_scan_attack
+                    elif attack_kind == "firewall_blocked_ssh_bruteforce":
+                        attack_fn = firewall_blocked_ssh_bruteforce
+                    elif attack_kind == "firewall_syn_flood":
+                        attack_fn = firewall_syn_flood_attack
+                    else:
+                        attack_fn = firewall_denied_egress_exfiltration
+
+                    fw_lines, current_time = attack_fn(
+                        atk_ip, current_time, attack_counters[attack_kind]
+                    )
+                    for fline in fw_lines:
+                        all_logs.append(("firewall", fline))
+                        firewall_line_count += 1
+                else:
+                    line, current_time = generate_firewall_normal_event(current_time)
+                    all_logs.append(("firewall", line))
+                    firewall_line_count += 1
+
                 remaining[2] -= 1
-                # Optionally advance time: current_time += datetime.timedelta(seconds=random.randint(1, 10))
 
         for ip, data in ips_that_attacked.items():
             u = next((x for x in user_list if x.ip == ip), None)
@@ -247,4 +287,6 @@ def generate_logs(
         "auth_instance_count": sizes[1] if gen_auth else 0,
         "ips_that_attacked": ips_that_attacked,
         "auth_line_count": auth_line_count,
+        "firewall_instance_count": sizes[2] if gen_firewall else 0,
+        "firewall_line_count": firewall_line_count,
     }

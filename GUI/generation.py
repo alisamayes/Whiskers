@@ -41,7 +41,7 @@ class GenPage(QWidget):
         self.size_label = QLabel("Size - ")
         self.access_size_input = QLineEdit("1000")
         self.auth_size_input = QLineEdit("1000")
-        self.firewall_size_input = QLineEdit("")
+        self.firewall_size_input = QLineEdit("1000")
 
         self.additional_options_line.addWidget(self.additional_options_label)
         self.additional_options_line.addWidget(self.size_label)
@@ -163,6 +163,8 @@ class GenPage(QWidget):
         access_lines = int(results.get("access_line_count", 0) or 0)
         auth_instances = int(results.get("auth_instance_count", 0) or 0)
         auth_lines = int(results["auth_line_count"] or 0)
+        firewall_instances = int(results.get("firewall_instance_count", 0) or 0)
+        firewall_lines = int(results.get("firewall_line_count", 0) or 0)
         stats_message = ""
 
         stats_message += "\n--------------- ACCESS LOG ---------------"
@@ -224,7 +226,22 @@ class GenPage(QWidget):
 
         stats_message += "\n--------------- FIREWALL LOG ---------------"
         if gen_firewall:
-            stats_message += "\nTODO: Implement firewall log generation"
+            fw_port_scan = int(attack_counters.get("firewall_port_scan", 0) or 0)
+            fw_ssh_bf = int(
+                attack_counters.get("firewall_blocked_ssh_bruteforce", 0) or 0
+            )
+            fw_syn_flood = int(attack_counters.get("firewall_syn_flood", 0) or 0)
+            fw_egress = int(
+                attack_counters.get("firewall_denied_egress_exfiltration", 0) or 0
+            )
+            fw_total = fw_port_scan + fw_ssh_bf + fw_syn_flood + fw_egress
+            stats_message += "\nBlocked port scan episodes: " + str(fw_port_scan)
+            stats_message += "\nBlocked SSH bruteforce episodes: " + str(fw_ssh_bf)
+            stats_message += "\nSYN flood episodes: " + str(fw_syn_flood)
+            stats_message += "\nDenied egress exfiltration episodes: " + str(fw_egress)
+            stats_message += "\nTotal firewall attack episodes generated: " + str(
+                fw_total
+            )
         else:
             stats_message += "\nNot generated."
 
@@ -248,7 +265,11 @@ class GenPage(QWidget):
             )
         if gen_firewall:
             profile_message += (
-                "\nFirewall log: generated (instance/line totals not yet implemented)"
+                "\nFirewall log: "
+                + str(firewall_instances)
+                + " instances, "
+                + str(firewall_lines)
+                + " lines"
             )
 
         profile_message += (
