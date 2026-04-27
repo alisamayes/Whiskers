@@ -81,9 +81,11 @@ def handle_generate_firewall(self, _command: list[str], _index: int) -> bool:
 def handle_generate(self, _command: list[str], _index: int) -> bool:
     self.gen_access = True
     self.gen_auth = True
+    self.gen_firewall = True
     self.gen_new = True
     record_gen_flag(self, "access")
     record_gen_flag(self, "auth")
+    record_gen_flag(self, "firewall")
     return False
 
 
@@ -122,7 +124,11 @@ def handle_check(self, _command: list[str], _index: int) -> bool:
 
 @command_handler("-as", "--actor-stats")
 def handle_actor_stats(self, _command: list[str], _index: int) -> bool:
-    show_actor_distribution(self.profile_counts, self.log_source_counts)
+    self.access_log_source_counts, self.auth_log_source_counts = show_actor_distribution(
+        self.profile_counts,
+        self.access_log_source_counts,
+        self.auth_log_source_counts,
+    )
     return True
 
 

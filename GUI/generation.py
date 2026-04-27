@@ -157,7 +157,7 @@ class GenPage(QWidget):
         """Render generation summary counts for selected log sources."""
         attack_counters = results["attack_counters"]
         profile_counts = results["profile_counts"]
-        log_source_counts = results["log_source_counts"]
+        access_log_source_counts = results.get("access_log_source_counts", {})
         auth_log_source_counts = results.get("auth_log_source_counts", {})
         access_instances = int(results.get("access_instance_count", 0) or 0)
         access_lines = int(results.get("access_line_count", 0) or 0)
@@ -278,7 +278,9 @@ class GenPage(QWidget):
         roles = ("normal", "scanner", "attacker", "compromised")
         for role in roles:
             users_count = int(profile_counts.get(role, 0) or 0)
-            access_count = int(log_source_counts.get(role, 0) or 0) if gen_access else 0
+            access_count = (
+                int(access_log_source_counts.get(role, 0) or 0) if gen_access else 0
+            )
             auth_count = (
                 int(auth_log_source_counts.get(role, 0) or 0) if gen_auth else 0
             )

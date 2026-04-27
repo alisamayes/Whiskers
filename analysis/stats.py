@@ -1,12 +1,24 @@
 from __future__ import annotations
 
 
-def show_actor_distribution(agent_counts, log_source_counts):
-    """Show the distribution of actors variants in the given run."""
+def show_actor_distribution(
+    agent_counts, access_log_source_counts, auth_log_source_counts
+):
+    """Show actor and per-log-source distributions, then return both source maps."""
     print("\nActor Distribution:")
     print(agent_counts)
     print("\nLog Source Distribution:")
-    print(log_source_counts)
+    all_roles = sorted(
+        set((access_log_source_counts or {}).keys())
+        | set((auth_log_source_counts or {}).keys())
+    )
+    for role in all_roles:
+        access_lines = int((access_log_source_counts or {}).get(role, 0) or 0)
+        auth_lines = int((auth_log_source_counts or {}).get(role, 0) or 0)
+        print(f"- {role}: {access_lines} access log lines, {auth_lines} auth log lines")
+    if not all_roles:
+        print("(not available)")
+    return access_log_source_counts, auth_log_source_counts
 
 
 def report_generation_stats(true_attack_counts):
@@ -88,7 +100,12 @@ def report_detection_stats(
 
 
 def report_check_stats(
-    true_counts, detected_counts, ips_that_attacked, profile_counts, log_source_counts
+    true_counts,
+    detected_counts,
+    ips_that_attacked,
+    profile_counts,
+    access_log_source_counts,
+    auth_log_source_counts,
 ) -> str:
     """
     Takes in relevant data relating to the true and detecked counts and outputs the accuracy of each attack type
@@ -138,15 +155,21 @@ def report_check_stats(
         lines.append("(not available)")
 
     lines.append("")
-    lines.append(
-        "--------------- LOG LINE SOURCE DISTRIBUTION (access lines by actor) ---------------"
-    )
-    if log_source_counts:
-        for role, n in log_source_counts.items():
-            lines.append(f"- {role}: {n} access log lines")
+    lines.append("--------------- LOG LINE SOURCE DISTRIBUTION ---------------")
+    if access_log_source_counts or auth_log_source_counts:
+        all_roles = sorted(
+            set((access_log_source_counts or {}).keys())
+            | set((auth_log_source_counts or {}).keys())
+        )
+        for role in all_roles:
+            access_lines = int((access_log_source_counts or {}).get(role, 0) or 0)
+            auth_lines = int((auth_log_source_counts or {}).get(role, 0) or 0)
+            lines.append(
+                f"- {role}: {access_lines} access log lines, {auth_lines} auth log lines"
+            )
     else:
         lines.append(
-            "(not available — run generation with access log, or N/A if no access data)"
+            "(not available — run generation with access/auth logs, or N/A if no source data)"
         )
 
     return "\n".join(lines)

@@ -52,6 +52,10 @@ class SqlInjectionDetector(BaseDetector):
 
         if df.empty or "path" not in df.columns:
             return alerts
+        if "log_source" in df.columns:
+            df = df[df["log_source"] == "access"]
+            if df.empty:
+                return alerts
 
         suspicious = df[df["path"].apply(self.is_suspicious)].copy()
         if suspicious.empty:

@@ -43,7 +43,7 @@ def generate_logs(
     Returns a dictionary with keys:
       * attack_counters
       * profile_counts
-      * log_source_counts
+      * access_log_source_counts
       * auth_log_source_counts
       * access_instance_count
       * access_line_count
@@ -80,7 +80,7 @@ def generate_logs(
         "compromised": 0,
     }
 
-    log_source_counts = {
+    access_log_source_counts = {
         "normal": 0,
         "scanner": 0,
         "attacker": 0,
@@ -171,7 +171,7 @@ def generate_logs(
                 else:
                     logs, current_time = user.perform_normal_traffic(current_time)
 
-                log_source_counts[user.profile] += 1
+                access_log_source_counts[user.profile] += 1
 
                 for line in logs:
                     all_logs.append(("access", line))
@@ -280,7 +280,7 @@ def generate_logs(
     return {
         "attack_counters": attack_counters,
         "profile_counts": profile_counts,
-        "log_source_counts": log_source_counts,
+        "access_log_source_counts": access_log_source_counts,
         "auth_log_source_counts": auth_log_source_counts,
         "access_instance_count": sizes[0] if gen_access else 0,
         "access_line_count": access_line_count,

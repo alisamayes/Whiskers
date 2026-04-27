@@ -29,6 +29,10 @@ class ExfiltrationDetector(BaseDetector):
 
         if df.empty or "bytes_sent" not in df.columns:
             return alerts
+        if "log_source" in df.columns:
+            df = df[df["log_source"] == "access"]
+            if df.empty:
+                return alerts
 
         tmp = df.sort_values(["ip", "timestamp"])
         gap = pd.Timedelta(seconds=self.session_gap_seconds)

@@ -71,6 +71,10 @@ class CommandInjectionDetector(BaseDetector):
 
         if df.empty or "path" not in df.columns:
             return alerts
+        if "log_source" in df.columns:
+            df = df[df["log_source"] == "access"]
+            if df.empty:
+                return alerts
 
         # This was for debuging purposes
         # df.to_pickle("data/dataframe.pkl")

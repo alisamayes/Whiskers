@@ -38,6 +38,12 @@ class BruteForceDetector(BaseDetector):
             List of ThreatAlert objects (one per detected burst).
         """
         alerts: List[ThreatAlert] = []
+        if df.empty:
+            return alerts
+        if "log_source" in df.columns:
+            df = df[df["log_source"] == "access"]
+            if df.empty:
+                return alerts
 
         # Filter for failed login attempts (behavioral detection, no use of classification/count)
         failed = df[

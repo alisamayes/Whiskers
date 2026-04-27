@@ -107,7 +107,13 @@ class Whiskers:
             "compromised": 0,
         }
 
-        self.log_source_counts = {
+        self.access_log_source_counts = {
+            "normal": 0,
+            "scanner": 0,
+            "attacker": 0,
+            "compromised": 0,
+        }
+        self.auth_log_source_counts = {
             "normal": 0,
             "scanner": 0,
             "attacker": 0,
@@ -299,7 +305,14 @@ class Whiskers:
         )
         self.true_attack_counts = result["attack_counters"].copy()
         self.profile_counts = result["profile_counts"]
-        self.log_source_counts = result["log_source_counts"]
+        self.access_log_source_counts = result.get(
+            "access_log_source_counts",
+            {"normal": 0, "scanner": 0, "attacker": 0, "compromised": 0},
+        )
+        self.auth_log_source_counts = result.get(
+            "auth_log_source_counts",
+            {"normal": 0, "scanner": 0, "attacker": 0, "compromised": 0},
+        )
         self.ips_that_attacked = result["ips_that_attacked"]
         self.auth_line_count = int(result["auth_line_count"])
         return result
@@ -317,7 +330,8 @@ class Whiskers:
             self.detected_attack_counts,
             self.ips_that_attacked,
             self.profile_counts,
-            self.log_source_counts,
+            self.access_log_source_counts,
+            self.auth_log_source_counts,
         )
 
     def update_true_attack_counts_from_df(self):
