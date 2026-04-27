@@ -283,6 +283,11 @@ class Whiskers:
             self.all_alerts,
             self.detected_attack_counts,
             self.mode,
+            enabled_sources={
+                "access": bool(self.access_logs),
+                "auth": bool(self.auth_logs),
+                "firewall": bool(self.firewall_logs),
+            },
             ml_summary=ml_summary,
         )
 

@@ -7,6 +7,7 @@ would run for the `-d/--detect` command.
 
 from PyQt6.QtWidgets import QLabel, QPushButton, QVBoxLayout, QWidget
 
+from command_processing import set_detect_sources
 from GUI.log_type_selector import LogTypeSelector
 
 
@@ -50,43 +51,40 @@ class DetectionPage(QWidget):
 
         # ============================================
 
-    def apply_log_toggle(self, log_type: str, enabled: bool) -> None:
-        """Enable or disable one configured log source on the engine."""
+    def toggle_detection_modes(self) -> bool:
+        """Use CLI-equivalent source selection for GUI detection toggles."""
         engine = getattr(self.window(), "whiskers", None) or self.whiskers
         if engine is None:
-            return
+            return False
 
-        sources = {
-            "Access": (
-                "access_logs",
-                {"name": "access", "path": "data/access.log", "format": "access"},
-            ),
-            "Auth": (
-                "auth_logs",
-                {"name": "auth", "path": "data/auth.log", "format": "auth"},
-            ),
-            "Firewall": (
-                "firewall_logs",
-                {"name": "firewall", "path": "data/firewall.log", "format": "firewall"},
-            ),
-        }
+        states = self.log_type_selector.selected_states()
+        set_detect_sources(
+            engine,
+            access=bool(states.get("Access", False)),
+            auth=bool(states.get("Auth", False)),
+            firewall=bool(states.get("Firewall", False)),
+        )
+        return True
 
-        if log_type not in sources:
-            return
-
-        attr, src = sources[log_type]
-        setattr(engine, attr, [src] if enabled else [])
+    def apply_log_toggle(self, log_type: str, enabled: bool) -> None:
+        """Keep engine detection sources in sync with GUI toggles."""
+        _ = (log_type, enabled)
+        self.toggle_detection_modes()
 
     def detect(self):
         """Run parse + true-count refresh + detection for selected sources."""
-        # For now, run the same pipeline as CLI `-d/--detect` against the current
-        # configured log sources on the Whiskers instance.
-        w = getattr(self.window(), "whiskers", None)
-        if w is None:
+        states = self.log_type_selector.selected_states()
+        if not any(states.values()):
+            self.true_attack_stats.setText("Please select at least one detection mode")
+            return
+
+        # Always resync to current toggle state so stale sources don't leak in.
+        if not self.toggle_detection_modes():
             self.true_attack_stats.setText(
                 "Error: Whiskers engine not attached to the main window."
             )
             return
+        w = getattr(self.window(), "whiskers", None) or self.whiskers
 
         w.run_detection_pipeline()
 
@@ -96,10 +94,24 @@ class DetectionPage(QWidget):
         """Render detected and true attack counts from engine state."""
         detected = getattr(whiskers_engine, "detected_attack_counts", {})
         true_counts = getattr(whiskers_engine, "true_attack_counts", {})
+        show_access = bool(getattr(whiskers_engine, "access_logs", []))
+        show_auth = bool(getattr(whiskers_engine, "auth_logs", []))
+        show_firewall = bool(getattr(whiskers_engine, "firewall_logs", []))
+
+        def include_kind(kind: str) -> bool:
+            if kind.startswith("access_"):
+                return show_access
+            if kind.startswith("auth_"):
+                return show_auth
+            if kind.startswith("firewall_"):
+                return show_firewall
+            return kind == "ml_anomaly"
 
         detected_lines = ["\n--------------- ATTACK DETECTION COUNTS ---------------"]
         if isinstance(detected, dict):
             for k, v in detected.items():
+                if not include_kind(k):
+                    continue
                 detected_lines.append(f"- {k}: {v}")
         else:
             detected_lines.append("(unavailable)")
@@ -107,6 +119,8 @@ class DetectionPage(QWidget):
         true_lines = ["\n--------------- TRUE ATTACK COUNTS ---------------"]
         if isinstance(true_counts, dict):
             for k, v in true_counts.items():
+                if not include_kind(k):
+                    continue
                 true_lines.append(f"- {k}: {v}")
         else:
             true_lines.append("(unavailable)")

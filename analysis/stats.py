@@ -39,14 +39,31 @@ def report_generation_stats(true_attack_counts):
 
 
 def report_detection_stats(
-    all_alerts, detected_attack_counts, mode, *, ml_summary=None
+    all_alerts,
+    detected_attack_counts,
+    mode,
+    *,
+    ml_summary=None,
+    enabled_sources: dict[str, bool] | None = None,
 ):
 
     lines: list[str] = [""]
+    source_flags = enabled_sources or {"access": True, "auth": True, "firewall": True}
+    enabled_prefixes = {
+        name for name, enabled in source_flags.items() if enabled and name in {"access", "auth", "firewall"}
+    }
+
+    def include_kind(kind: str) -> bool:
+        if kind == "ml_anomaly":
+            return True
+        return any(kind.startswith(f"{prefix}_") for prefix in enabled_prefixes)
+
     if mode == "verbose":
         lines.append("--- threat detections ---")
         verbose_by_kind: dict[str, list[object]] = {}
         for alert in all_alerts:
+            if not include_kind(alert.kind):
+                continue
             verbose_by_kind.setdefault(alert.kind, []).append(alert)
 
         for kind, alerts_of_kind in verbose_by_kind.items():
@@ -59,6 +76,8 @@ def report_detection_stats(
         # Summary view
         summary_by_kind: dict[str, int] = {}
         for alert in all_alerts:
+            if not include_kind(alert.kind):
+                continue
             summary_by_kind[alert.kind] = summary_by_kind.get(alert.kind, 0) + 1
         for kind, count in summary_by_kind.items():
             if kind == "ml_anomaly":
