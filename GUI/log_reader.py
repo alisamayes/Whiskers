@@ -30,6 +30,7 @@ _LOG_VIEW_STYLE = """
     }
 """
 
+
 class LogReaderPage(QWidget):
     def __init__(self, whiskers_agent, parent=None):
         """

@@ -417,7 +417,9 @@ def parse_firewall_logs(file, source: str = "firewall"):
                 "status": 200 if action == "ALLOW" else 403,
                 "bytes_sent": int(bytes_sent),
                 "agent": "firewall",
-                "classification": classification if classification is not None else "normal",
+                "classification": (
+                    classification if classification is not None else "normal"
+                ),
                 "count": int(count) if count is not None else 0,
                 "log_source": source,
                 "firewall_host": fw_host,

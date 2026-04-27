@@ -290,4 +290,3 @@ class GenPage(QWidget):
         )
 
         self.actor_stats.setText(profile_message)
-

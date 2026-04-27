@@ -6,15 +6,15 @@ from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtWidgets import (
     QFileDialog,
     QHBoxLayout,
-    QMessageBox,
     QLabel,
+    QMessageBox,
     QPushButton,
     QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
-from simulator.log_manager import save_logs, shred_logs
 
+from simulator.log_manager import save_logs, shred_logs
 
 _DEFAULT_SOURCES = {
     "access": {"name": "access", "path": "data/access.log", "format": "access"},
@@ -67,7 +67,9 @@ class FileSelector(QWidget):
         self.type_label = QLabel(f"{self.data['name']} log:")
         self.path_label = QLabel(self.data["path"])
         self.path_label.setWordWrap(True)
-        self.path_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        self.path_label.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred
+        )
 
         self.save_button = QPushButton("Save")
         self.save_button.clicked.connect(self.save_FE)
@@ -75,9 +77,15 @@ class FileSelector(QWidget):
         self.load_button.clicked.connect(self.load_FE)
         self.shred_button = QPushButton("Shred")
         self.shred_button.clicked.connect(self.shred_FE)
-        self.save_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        self.load_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        self.shred_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.save_button.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
+        )
+        self.load_button.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
+        )
+        self.shred_button.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed
+        )
 
         info_line.addWidget(self.type_label, stretch=0)
         info_line.addWidget(self.path_label, stretch=1)

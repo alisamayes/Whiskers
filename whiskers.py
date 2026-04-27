@@ -4,6 +4,7 @@ from typing import Optional
 
 import pandas as pd
 
+import command_processing
 from analysis import feature_engineering
 from analysis.detectors import (
     AuthPrivilegeEscalationChain,
@@ -24,7 +25,6 @@ from analysis.stats import (
     report_detection_stats,
 )
 from simulator.log_simulator import generate_logs
-import command_processing
 
 
 def normalize_timestamps_utc(df: pd.DataFrame) -> pd.DataFrame:
@@ -116,8 +116,7 @@ class Whiskers:
         self.ips_that_attacked = {}
         self.auth_line_count = 0
 
-        mouse_art_1 = [
-            """
+        mouse_art_1 = ["""
             ⠀⠀⠀⡎⠑⡄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
         ⠀⠀⠀⠀⠀⠀⢸⠀⠀⠸⡀⠀⠀⠀⣠⠴⡲⠛⠉⠉⠓⠲⣄⠀⠀⠀⠀⠀⠀⠀
         ⠀⠀⠀⠀⠀⠀⢸⠀⠀⠀⣇⡴⢠⠞⢁⠞⠒⠒⠤⠀⠀⠀⠈⢳⠀⠀⠀⠀⠀⠀
@@ -135,10 +134,8 @@ class Whiskers:
         ⠀⠀⠀⠀⠸⣆⠀⢄⠀⠀⡇⠀⠀⠀⠀⠀⠀⠀⠀⢀⡞⠀⠀⠀⠀⠀⠀⠀⠀⠀
         ⠀⠀⠀⢀⣴⠋⡛⠲⢵⣦⣽⣦⣀⣀⠀⢀⣀⣠⠴⠋⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
         ⠀⠀⠀⠈⠙⠒⠓⠒⠉⢸⣕⣠⣈⡭⠝⠋⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-        """
-        ]
-        self.mouse_art_2 = [
-            """
+        """]
+        self.mouse_art_2 = ["""
         ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣿⡆⠀⢀⡴⠚⠉⠉⠉⠙⠢⡄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣠⠤⠤⣄⡀⠀⠀⠀⠀⠀⠀⠀⠀
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⣼⢻⡇⢰⠋⠀⣠⠴⠲⢤⡀⠀⠘⡆⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⡴⠋⠀⠀⠀⢀⣹⡄⠀⠀⠀⠀⠀⠀⠀
@@ -160,8 +157,7 @@ class Whiskers:
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⣧⠀⠀⢸⡄⠀⠀⠀⠀⠀⠀⠀⢠⠏⠀⣤⣾⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢰⣿⣷⣶⣮⣷⠀⠀⠀⠀⠀⠀⠀⢿⣤⣿⣿⣽⠃⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⠉⠙⠉⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-        """
-        ]
+        """]
         print(mouse_art_1[0])
         print("Generating new Whiskers Agent...")
 
@@ -194,11 +190,11 @@ class Whiskers:
     def init_log_sources(self) -> None:
         """Initialize configured source lists for each log family."""
         # each entry: {"name": str, "path": str, "format": str}
-        self.access_logs = [
-            {"name": "access", "path": "data/access.log", "format": "access"}
+        self.access_logs: list[dict[str, str]] = [
+            #  {"name": "access", "path": "data/access.log", "format": "access"}
         ]
-        self.firewall_logs = []
-        self.auth_logs = []
+        self.firewall_logs: list[dict[str, str]] = []
+        self.auth_logs: list[dict[str, str]] = []
 
     def show_help(self):
         """Print CLI usage, flags, and auxiliary file-management commands."""

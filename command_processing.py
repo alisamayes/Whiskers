@@ -4,7 +4,6 @@ from collections.abc import Callable
 from analysis.stats import report_generation_stats, show_actor_distribution
 from simulator.log_manager import save_logs, shred_logs
 
-
 _ACCESS_SRC = {"name": "access", "path": "data/access.log", "format": "access"}
 _AUTH_SRC = {"name": "auth", "path": "data/auth.log", "format": "auth"}
 _FIREWALL_SRC = {"name": "firewall", "path": "data/firewall.log", "format": "firewall"}
@@ -171,7 +170,9 @@ def parse_commands(self, command: list[str]) -> None:
         if arg in ("-al", "--access-log", "access-log"):
             try:
                 path = command[i + 1]
-                self.access_logs = [{"name": "access", "path": path, "format": "access"}]
+                self.access_logs = [
+                    {"name": "access", "path": path, "format": "access"}
+                ]
                 i += 1
             except IndexError:
                 print(
@@ -226,7 +227,11 @@ def run_generation_if_requested(self) -> None:
 
     print("\n=============== Running Generation ===============\n")
     result = self.run_generation(
-        sizes=[resolved_sizes["access"], resolved_sizes["auth"], resolved_sizes["firewall"]],
+        sizes=[
+            resolved_sizes["access"],
+            resolved_sizes["auth"],
+            resolved_sizes["firewall"],
+        ],
         users=100,
         gen_access=self.gen_access,
         gen_auth=self.gen_auth,

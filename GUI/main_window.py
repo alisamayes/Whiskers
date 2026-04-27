@@ -14,9 +14,9 @@ from PyQt6.QtWidgets import (
 
 from GUI.checking import CheckingPage
 from GUI.detection import DetectionPage
+from GUI.file_manager import FileManagerPage
 from GUI.generation import GenPage
 from GUI.log_reader import LogReaderPage
-from GUI.file_manager import FileManagerPage
 
 _ASSETS = Path(__file__).resolve().parent.parent / "assets"
 
@@ -78,7 +78,7 @@ class ApplicationWindow(QMainWindow):
         self.tabs.addTab(self.checking, "Checking")
         self.tabs.addTab(self.reader, "Log Reader")
         self.tabs.addTab(self.file_manager, "File Manager")
-        
+
     def closeEvent(self, event: QCloseEvent | None) -> None:
         if event is None:
             return
