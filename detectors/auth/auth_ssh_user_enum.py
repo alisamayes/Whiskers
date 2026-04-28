@@ -6,8 +6,8 @@ from typing import List
 
 import pandas as pd
 
+from ..base import BaseDetector, ThreatAlert
 from .auth_common import METHOD_SSH, PATH_SSH_INVALID_USER, burst_alerts_per_ip
-from .base import BaseDetector, ThreatAlert
 
 
 class AuthSshUserEnumDetector(BaseDetector):

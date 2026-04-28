@@ -12,11 +12,11 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from GUI.checking import CheckingPage
-from GUI.detection import DetectionPage
-from GUI.file_manager import FileManagerPage
-from GUI.generation import GenPage
-from GUI.log_reader import LogReaderPage
+from GUI.pages.checking_page import CheckingPage
+from GUI.pages.detection_page import DetectionPage
+from GUI.pages.generation_page import GenPage
+from GUI.pages.log_files_page import FileManagerPage
+from GUI.pages.log_reader_page import LogReaderPage
 
 _ASSETS = Path(__file__).resolve().parent.parent / "assets"
 

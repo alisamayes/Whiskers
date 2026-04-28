@@ -6,7 +6,7 @@ from typing import List
 
 import pandas as pd
 
-from .base import BaseDetector, ThreatAlert
+from ..base import BaseDetector, ThreatAlert
 
 SUSPECT_SUBSTRINGS = [
     " or 1=1",

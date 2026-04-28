@@ -2,7 +2,7 @@ import sys
 from collections.abc import Callable
 
 from analysis.stats import report_generation_stats, show_actor_distribution
-from simulator.log_manager import save_logs, shred_logs
+from simulator.file_manager import save_logs, shred_logs
 
 _ACCESS_SRC = {"name": "access", "path": "data/access.log", "format": "access"}
 _AUTH_SRC = {"name": "auth", "path": "data/auth.log", "format": "auth"}
@@ -124,10 +124,12 @@ def handle_check(self, _command: list[str], _index: int) -> bool:
 
 @command_handler("-as", "--actor-stats")
 def handle_actor_stats(self, _command: list[str], _index: int) -> bool:
-    self.access_log_source_counts, self.auth_log_source_counts = show_actor_distribution(
-        self.profile_counts,
-        self.access_log_source_counts,
-        self.auth_log_source_counts,
+    self.access_log_source_counts, self.auth_log_source_counts = (
+        show_actor_distribution(
+            self.profile_counts,
+            self.access_log_source_counts,
+            self.auth_log_source_counts,
+        )
     )
     return True
 

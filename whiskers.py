@@ -6,24 +6,8 @@ import pandas as pd
 
 import command_processing
 from analysis import feature_engineering
-from analysis.detectors import (
-    AuthPrivilegeEscalationChain,
-    AuthSshBruteforceDetector,
-    AuthSshUserEnumDetector,
-    AuthSudoBruteforceDetector,
-    BruteForceDetector,
-    CommandInjectionDetector,
-    ExfiltrationDetector,
-    FloodDetector,
-    IsolationForestDetector,
-    ScanDetector,
-    SqlInjectionDetector,
-    SupervisedIPClassifierDetector,
-)
-from analysis.stats import (
-    report_check_stats,
-    report_detection_stats,
-)
+from analysis.stats import report_check_stats, report_detection_stats
+from detectors.registry import build_default_detectors, select_detectors_for_sources
 from simulator.log_simulator import generate_logs
 
 
@@ -51,26 +35,8 @@ class Whiskers:
         self.init_runtime_flags()
         self.init_log_sources()
 
-        # Initialize detectors with configurable thresholds
-        self.detectors = [
-            BruteForceDetector(threshold=10),
-            ScanDetector(threshold=4),
-            FloodDetector(threshold=100),
-            SqlInjectionDetector(threshold=2),
-            ExfiltrationDetector(threshold=2_000_000),
-            CommandInjectionDetector(threshold=2),
-            AuthSshBruteforceDetector(threshold=8, session_gap_seconds=90),
-            AuthSshUserEnumDetector(threshold=12, session_gap_seconds=90),
-            AuthSudoBruteforceDetector(threshold=5, session_gap_seconds=180),
-            AuthPrivilegeEscalationChain(
-                threshold=3,
-                window_seconds=600,
-                first_fail_max_seconds=240,
-                heuristic_threshold=5,
-            ),
-            IsolationForestDetector(),
-            SupervisedIPClassifierDetector(),
-        ]
+        # Build all detectors once; we filter per-run based on enabled sources.
+        self.detectors = build_default_detectors()
 
         # Initialize list for true number of attack types. Will be filled when generating logs
         self.true_attack_counts = {
@@ -84,6 +50,11 @@ class Whiskers:
             "auth_ssh_user_enum": 0,
             "auth_sudo_bruteforce": 0,
             "auth_privilege_escalation": 0,
+            "firewall_port_scan": 0,
+            "firewall_syn_flood": 0,
+            "firewall_ssh_bruteforce": 0,
+            "firewall_egress_exfiltration": 0,
+            "ml_anomaly": 0,
         }
 
         self.detected_attack_counts = {
@@ -97,6 +68,11 @@ class Whiskers:
             "auth_ssh_user_enum": 0,
             "auth_sudo_bruteforce": 0,
             "auth_privilege_escalation": 0,
+            "firewall_port_scan": 0,
+            "firewall_syn_flood": 0,
+            "firewall_ssh_bruteforce": 0,
+            "firewall_egress_exfiltration": 0,
+            "ml_anomaly": 0,
         }
 
         # Stats from log generation
@@ -273,7 +249,16 @@ class Whiskers:
 
         self.all_alerts = []
         ml_summary = None
-        for detector in self.detectors:
+        enabled_sources = {
+            "access": bool(self.access_logs),
+            "auth": bool(self.auth_logs),
+            "firewall": bool(self.firewall_logs),
+        }
+        run_detectors = select_detectors_for_sources(
+            self.detectors,
+            [k for k, v in enabled_sources.items() if v],
+        )
+        for detector in run_detectors:
             alerts = detector.detect(self.df)
             self.all_alerts.extend(alerts)
             if getattr(detector, "kind", None) == "ml_anomaly":
@@ -283,11 +268,7 @@ class Whiskers:
             self.all_alerts,
             self.detected_attack_counts,
             self.mode,
-            enabled_sources={
-                "access": bool(self.access_logs),
-                "auth": bool(self.auth_logs),
-                "firewall": bool(self.firewall_logs),
-            },
+            enabled_sources=enabled_sources,
             ml_summary=ml_summary,
         )
 

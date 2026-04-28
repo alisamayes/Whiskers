@@ -1,6 +1,10 @@
 """
 File-management helpers for Whiskers GUI.
+
+Moved from `GUI/file_manager.py` to avoid confusing it with `simulator/file_manager.py`.
 """
+
+from __future__ import annotations
 
 from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtWidgets import (
@@ -14,7 +18,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from simulator.log_manager import save_logs, shred_logs
+from simulator.file_manager import save_logs, shred_logs
 
 _DEFAULT_SOURCES = {
     "access": {"name": "access", "path": "data/access.log", "format": "access"},
@@ -49,7 +53,6 @@ class FileSelector(QWidget):
 
     It is used to select a file for a given type of log.
     Load opens a file explorer and updates the configured source path.
-    Save and Shred buttons are present but intentionally unconnected for now.
     """
 
     path_changed = pyqtSignal(str, str)
@@ -112,10 +115,7 @@ class FileSelector(QWidget):
         return sources[0]
 
     def load_FE(self) -> None:
-        """
-        Open a file explorer and allow user to select a file.
-        Update the path label to show the new path and update data["path"].
-        """
+        """Pick a log file and update the configured source path."""
         start_path = self.data["path"]
         selected_path, _ = QFileDialog.getOpenFileName(
             self,
@@ -136,30 +136,24 @@ class FileSelector(QWidget):
         self.path_changed.emit(self.log_type, path)
 
     def save_FE(self) -> None:
-        """
-        Open a file explorer and allow user to navigate to a directory to save current log file for a given log type.
-        """
-
+        """Save the current configured log file to a chosen path."""
         selected_path, _ = QFileDialog.getSaveFileName(
             self,
             f"Save {self.data['name']} log file",
-            self.data["path"],  # initial path or default filename
+            self.data["path"],
             "Log Files (*.log *.txt);;All Files (*.*)",
         )
         if selected_path:
             save_logs(self.whiskers, [self.log_type, selected_path])
 
     def shred_FE(self) -> None:
-        """
-        Open a file explorer and allow user to navigate to a directory to shred a saved log file for a given log type.
-        """
+        """Delete a log file with confirmation."""
         selected_path, _ = QFileDialog.getOpenFileName(
             self,
             f"Shred {self.data['name']} log file",
             self.data["path"],
             "Log Files (*.log *.txt);;All Files (*.*)",
         )
-        # Make confirmation dialog to ensure user wants to shred the log file.
         confirmation = QMessageBox.question(
             self,
             f"Shred {self.data['name']} log file",
@@ -169,5 +163,3 @@ class FileSelector(QWidget):
         )
         if confirmation == QMessageBox.StandardButton.Yes:
             shred_logs(self.whiskers, [self.log_type, selected_path])
-        else:
-            return

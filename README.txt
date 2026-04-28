@@ -83,16 +83,18 @@ The project is built for learning and demonstration rather than production real-
 - `command_processing.py`: CLI command parsing and execution
 - `parser/log_parser.py`: log ingestion and DataFrame normalization
 - `analysis/feature_engineering.py`: builds detection features
-- `analysis/threat_detection.py`: orchestrates detectors
+- `detectors/registry.py`: orchestrates detectors (selection/instantiation)
 - `analysis/ml_steps.py`: ML pipeline, model load/score
 - `analysis/train_supervised_ip_classifier.py`: train classifier
-- `analysis/detectors/`: per-threat detector modules
+- `detectors/`: per-threat detector modules (grouped by log type)
+  - `detectors/registry.py`: detector registry + per-log-type selection
 - `GUI/main_window.py`: PyQt GUI window
+- `GUI/pages/`: GUI tab/page modules (e.g. log file picker page)
 - `simulator/`: log generation and simulation tools
   - `log_simulator.py`: core generation logic
   - `access_log_simulator.py`: access log generation
   - `auth_log_simulator.py`: auth log generation
-  - `log_manager.py`: log file management utilities
+  - `file_manager.py`: log file management utilities
 - `models/`: saved `.joblib` model files
 
 ---

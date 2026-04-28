@@ -6,8 +6,8 @@ from typing import List
 
 import pandas as pd
 
+from ..base import BaseDetector, ThreatAlert
 from .auth_common import METHOD_SUDO, PATH_SUDO_AUTH_FAILURE, burst_alerts_per_ip
-from .base import BaseDetector, ThreatAlert
 
 
 class AuthSudoBruteforceDetector(BaseDetector):

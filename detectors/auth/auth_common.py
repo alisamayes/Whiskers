@@ -9,7 +9,7 @@ from typing import List
 
 import pandas as pd
 
-from .base import ThreatAlert
+from ..base import ThreatAlert
 
 PATH_SSH_FAILED_PASSWORD = "ssh/failed_password"
 PATH_SSH_INVALID_USER = "ssh/invalid_user"

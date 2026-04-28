@@ -50,7 +50,9 @@ def report_detection_stats(
     lines: list[str] = [""]
     source_flags = enabled_sources or {"access": True, "auth": True, "firewall": True}
     enabled_prefixes = {
-        name for name, enabled in source_flags.items() if enabled and name in {"access", "auth", "firewall"}
+        name
+        for name, enabled in source_flags.items()
+        if enabled and name in {"access", "auth", "firewall"}
     }
 
     def include_kind(kind: str) -> bool:
