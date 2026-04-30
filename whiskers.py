@@ -55,6 +55,7 @@ class Whiskers:
             "firewall_ssh_bruteforce": 0,
             "firewall_egress_exfiltration": 0,
             "ml_anomaly": 0,
+            "ml_supervised": 0,
         }
 
         self.detected_attack_counts = {
@@ -73,6 +74,7 @@ class Whiskers:
             "firewall_ssh_bruteforce": 0,
             "firewall_egress_exfiltration": 0,
             "ml_anomaly": 0,
+            "ml_supervised": 0,
         }
 
         # Stats from log generation

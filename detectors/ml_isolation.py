@@ -104,6 +104,9 @@ class IsolationForestDetector(BaseDetector):
         min_ips_for_forest: int = 6,
         # sklearn needs contamination for training; kept small — alert threshold is MAD-based
         forest_contamination: float = 0.02,
+        low_n_rpm_threshold: float = 30.0,
+        low_n_error_rate_threshold: float = 0.45,
+        low_n_scan_ratio_threshold: float = 0.65,
     ):
         super().__init__(threshold=threshold)
         self.n_estimators = n_estimators
@@ -113,6 +116,9 @@ class IsolationForestDetector(BaseDetector):
         self.severe_behavioral_risk = severe_behavioral_risk
         self.min_ips_for_forest = min_ips_for_forest
         self.forest_contamination = forest_contamination
+        self.low_n_rpm_threshold = low_n_rpm_threshold
+        self.low_n_error_rate_threshold = low_n_error_rate_threshold
+        self.low_n_scan_ratio_threshold = low_n_scan_ratio_threshold
         self.last_run_summary: dict[str, Any] | None = None
 
     def detect(self, df: pd.DataFrame) -> List[ThreatAlert]:
@@ -158,9 +164,20 @@ class IsolationForestDetector(BaseDetector):
 
         for i, ip in enumerate(ips):
             r = float(risk[i])
+            low_n_hostile = (
+                not use_forest
+                and (
+                    float(features.iloc[i]["requests_per_minute"])
+                    >= self.low_n_rpm_threshold
+                    or float(features.iloc[i]["error_rate"])
+                    >= self.low_n_error_rate_threshold
+                    or float(features.iloc[i]["path_scan_ratio"])
+                    >= self.low_n_scan_ratio_threshold
+                )
+            )
             hostile = (
                 use_forest and if_outlier[i] and r >= self.min_behavioral_risk
-            ) or (r >= self.severe_behavioral_risk)
+            ) or (r >= self.severe_behavioral_risk) or low_n_hostile
 
             if not hostile:
                 continue
@@ -169,7 +186,7 @@ class IsolationForestDetector(BaseDetector):
                 depth = float((cutoff - scores[i]) / (abs(cutoff) + 1e-6))
                 conf = float(np.clip(0.35 + 0.4 * min(1.0, depth) + 0.25 * r, 0.0, 1.0))
             else:
-                conf = float(np.clip(0.5 + 0.5 * r, 0.0, 1.0))
+                conf = float(np.clip(0.45 + 0.5 * r, 0.0, 1.0))
 
             alerts.append(
                 ThreatAlert(

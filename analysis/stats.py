@@ -56,7 +56,7 @@ def report_detection_stats(
     }
 
     def include_kind(kind: str) -> bool:
-        if kind == "ml_anomaly":
+        if kind in {"ml_anomaly", "ml_supervised"}:
             return True
         return any(kind.startswith(f"{prefix}_") for prefix in enabled_prefixes)
 
@@ -85,6 +85,10 @@ def report_detection_stats(
             if kind == "ml_anomaly":
                 lines.append(
                     f"ML isolation forest identified {count} anomalous/ hostile IPs"
+                )
+            elif kind == "ml_supervised":
+                lines.append(
+                    f"ML supervised classifier identified {count} likely hostile IPs"
                 )
             else:
                 lines.append(
@@ -163,6 +167,15 @@ def report_check_stats(
         lines.append(
             f"ML Isolation Forest detected {detected_counts['ml_anomaly']} anomalous/ hostile IPs "
             f"out of {hostile_count} total unique attacking IPs (non-normal profiles in generation metadata)."
+        )
+    if detected_counts.get("ml_supervised", 0) > 0:
+        hostile_count = 0
+        for _ip, data in ips_that_attacked.items():
+            if isinstance(data, dict) and data.get("profile") != "normal":
+                hostile_count += 1
+        lines.append(
+            f"ML Supervised classifier flagged {detected_counts['ml_supervised']} likely hostile IPs "
+            f"for review (reference hostile IP count in generation metadata: {hostile_count})."
         )
 
     lines.append("")

@@ -1,241 +1,190 @@
 # Whiskers
 
-Whiskers is a learning-focused cybersecurity log analysis toolkit combining rule-based threat detection with machine learning on server logs.
-The project is built for learning and demonstration rather than production real-time defense.
+Whiskers is a learning-focused cybersecurity log analysis toolkit. It combines rule-based threat detection and machine-learning signals over generated or real log files.
 
----
+This project is for learning and demonstration, not production real-time defense.
 
 ## Goals
 
-- Improve Python engineering and code organization
-- Explore cyber threat detection techniques
-- Combine rule-based detection with ML anomaly and classification models
-- Build on Apache-style log parsing and make improvements for more sources
-
----
+- Improve Python engineering and project organization
+- Explore practical cyber threat detection techniques
+- Combine deterministic detectors with ML anomaly/classification signals
+- Expand parser and detector coverage incrementally
 
 ## What Whiskers does
 
-- **Parse multiple log formats** into structured data:
-  - Apache access logs
-  - Linux auth logs
-  - Firewall logs (WIP)
-- **Generate synthetic logs** for testing and learning
-- **Apply threat detectors** for:
-  - Brute force attacks
-  - Directory traversal/scanning
-  - Request flood / DDoS patterns
-  - SQL Injection
-  - Command Injection
-  - Data exfiltration
-  - SSH bruteforce and user enumeration
-  - Sudo bruteforce
-  - Privilege escalation chains
-- **Run ML models** to score IPs and connections:
-  - Anomaly detection via IsolationForest
-  - Supervised IP classification via RandomForest
-- **Output suspicious IP reports** + flags for detected threat types
-- **Check detection accuracy** against known attack patterns
-- **Interactive CLI** and **GUI interface**
+- Parse multiple log formats into a normalized dataframe
+- Generate synthetic logs for repeatable testing and learning
+- Detect suspicious behavior with rule-based detectors
+- Run ML scoring (anomaly + supervised IP classification)
+- Produce detection/check reports and actor profile stats
+- Provide both CLI and GUI workflows
 
----
+## Supported log sources
 
-## Current supported log formats
+- Apache-style access logs
+- Linux auth logs (`auth.log` / `secure` style)
+- Firewall logs (experimental support)
 
-- Apache access logs (combined/standard)
-- Linux auth logs (auth.log/secure)
-- Firewall logs (experimental)
+## Detection coverage
 
----
+### Access log detectors
 
-## Threat categories
+- Brute force
+- Directory traversal / scanning
+- Request flood / DDoS-style bursts
+- SQL injection patterns
+- Command injection patterns
+- Data exfiltration indicators
 
-### Implemented
-- **Access log threats:**
-  - Brute force
-  - Directory traversal/scanning
-  - Request flood / DDoS
-  - SQL injection
-  - Command injection
-  - Data exfiltration
+### Auth log detectors
 
-- **Auth log threats:**
-  - SSH bruteforce
-  - SSH user enumeration
-  - Sudo bruteforce
-  - Privilege escalation chains
+- SSH brute force
+- SSH user enumeration
+- Sudo brute force
+- Privilege escalation chains
 
-- **ML-based detection:**
-  - Isolation Forest anomaly detection
-  - Supervised IP classification
+### Firewall detectors
 
-### Planned
-- Geo-location based anomalies
-- Insecure Direct Object References (IDOR)
-- OWASP Top 10 coverage expansion
+- Port scan
+- SYN flood
+- SSH brute force indicators
+- Egress exfiltration indicators
 
----
+### ML detectors
+
+- Isolation Forest anomaly detection
+- Supervised IP classification (RandomForest)
 
 ## Project structure
 
 - `main.py`: application entry point
-- `whiskers.py`: main controller logic (input → detect → output)
-- `command_processing.py`: CLI command parsing and execution
-- `parser/log_parser.py`: log ingestion and DataFrame normalization
-- `analysis/feature_engineering.py`: builds detection features
-- `detectors/registry.py`: orchestrates detectors (selection/instantiation)
-- `analysis/ml_steps.py`: ML pipeline, model load/score
-- `analysis/train_supervised_ip_classifier.py`: train classifier
-- `detectors/`: per-threat detector modules (grouped by log type)
-  - `detectors/registry.py`: detector registry + per-log-type selection
-- `GUI/main_window.py`: PyQt GUI window
-- `GUI/pages/`: GUI tab/page modules (e.g. log file picker page)
-- `simulator/`: log generation and simulation tools
-  - `log_simulator.py`: core generation logic
-  - `access_log_simulator.py`: access log generation
-  - `auth_log_simulator.py`: auth log generation
-  - `file_manager.py`: log file management utilities
-- `models/`: saved `.joblib` model files
+- `whiskers.py`: core runtime controller and pipeline orchestration
+- `command_processing.py`: CLI argument/command handling
+- `parser/log_parser.py`: parsing and source-specific normalization
+- `analysis/feature_engineering.py`: feature generation for detection
+- `analysis/ml_steps.py`: model loading and ML scoring flow
+- `analysis/train_supervised_ip_classifier.py`: supervised model training script
+- `detectors/`: per-threat detector implementations
+- `detectors/registry.py`: detector construction and source-based selection
+- `GUI/main_window.py`: PyQt main window
+- `GUI/pages/`: GUI pages/components
+- `simulator/`: synthetic log generation tools
+- `models/`: serialized model artifacts (`.joblib`)
 
----
+## Setup
 
-## Run instructions
-
-### 1. Set up environment
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+python -m venv .venv
+# Windows (PowerShell):
+.venv\Scripts\Activate.ps1
+# macOS/Linux:
+source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 2. CLI mode
+## Running Whiskers
 
-#### Basic usage
+### CLI quick start
+
 ```bash
 python main.py [options]
 ```
 
-#### Generate logs
+### Generate logs
+
 ```bash
-# Generate default logs (2000 actions each)
+# Generate all default log types
 python main.py -g
 
-# Generate specific log types
+# Generate specific types
 python main.py -gac -gauth -gfire
 
-# Generate with custom sizes (per log type)
+# Per-log custom sizes
 python main.py -gac -gauth -s 1000 500
 ```
 
-#### Run detection
+### Run detection
+
 ```bash
-# Detect on all default logs
+# Detect on configured/default logs
 python main.py -d
 
-# Detect on specific logs
+# Detect specific families
 python main.py -dac -dauth
 
-# Use custom log files
+# Use explicit files
 python main.py -d -al /path/to/access.log -au /path/to/auth.log
 
-# Verbose output
+# Verbose alert output
 python main.py -d -v
 ```
 
-#### Check accuracy
-```bash
-python main.py -c
-```
+### Check and stats
 
-#### Show actor statistics
 ```bash
+# Compare true vs detected attack counts
+python main.py -c
+
+# Show generated actor profile distribution
 python main.py -as
 ```
 
-#### Log management
-```bash
-# Save current log
-python main.py save my_log.log
+### GUI mode
 
-# Delete a log file
-python main.py shred old_log.log
-```
-
-### 3. GUI mode
 ```bash
 python main.py -ui
 ```
 
-### 4. Interactive mode
+### Interactive mode
+
 ```bash
 python main.py
 # Then enter commands interactively
 ```
 
----
+## CLI options reference
 
-## CLI Options Reference
-
-```
+```text
 General:
--h, --help                      Show this help message
--ui, --ui                       Open the graphical user interface
-q, quit, exit                   Close Whiskers
+-h, --help                      Show help
+-ui, --ui                       Open graphical user interface
+q, quit, exit                   Close Whiskers (interactive mode)
 
 Generation:
--gac, --generate_access         Generate new access log (data/access.log)
--gauth, --generate_auth         Generate new auth log (data/auth.log)
--gfire, --generate_firewall     Generate new firewall log (data/firewall.log)
--g, --generate                  Generate all log types
--s, --size [numbers]            Number of actions actors will take to generate logs
-                                (default 2000, attacks generate more lines)
-                                Multiple values for per-log-type sizing
+-gac, --generate_access         Generate access log (data/access.log)
+-gauth, --generate_auth         Generate auth log (data/auth.log)
+-gfire, --generate_firewall     Generate firewall log (data/firewall.log)
+-g, --generate                  Generate all configured log types
+-s, --size [numbers]            Generation sizes (default: 2000)
 
 Detection:
--d, --detect                    Run detection on all current logs
--dac, --detect-access           Run detection on access.log only
--dauth, --detect-auth           Run detection on auth.log only
--v, --verbose                   Enable verbose detection output
--al, --access-log [PATH]        Use specific access log file
--au, --auth-log [PATH]          Use specific auth log file
--fw, --firewall-log [PATH]      Use specific firewall log file (WIP)
+-d, --detect                    Run detection on current logs
+-dac, --detect-access           Detect access logs only
+-dauth, --detect-auth           Detect auth logs only
+-v, --verbose                   Print detailed alert output
+-al, --access-log [PATH]        Use custom access log file
+-au, --auth-log [PATH]          Use custom auth log file
+-fw, --firewall-log [PATH]      Use custom firewall log file
 
 Checking:
--c, --check                     Check detection accuracy
+-c, --check                     Compare generated-vs-detected attacks
 -as, --actor-stats              Show actor profile distribution
 
-Log management:
+File management commands:
 save [log_type] [filename] [directory]
-                                Save currently configured access/auth/firewall
-                                source log to new file
-shred [filename] [directory]    Delete log file
+shred [filename] [directory]
 ```
-
----
 
 ## Model artifacts
 
-- `models/isolation_forest.joblib`: Isolation Forest anomaly detection model
-- `models/isolation_scaler.joblib`: Feature scaler for isolation forest
-- `models/ip_supervised_rf.joblib`: Supervised IP classification model
+- `models/ip_supervised_rf.joblib` (bundle with model + feature schema + metadata)
 
 Training script: `analysis/train_supervised_ip_classifier.py`
-
----
-
-## Project board
-
-https://app.plane.so/whiskers/projects/bd4260e8-7da4-4145-b35c-767f3a9e115d/issues/
-
-- `models/isolation_forest.joblib`
-- `models/isolation_scaler.joblib`
-- `models/ip_supervised_rf.joblib`
-
-Training script: `analysis/train_supervised_ip_classifier.py`
-
----
+- Trains from whichever of `data/access.log`, `data/auth.log`, `data/firewall.log` exist.
+- Requires both normal and malicious IPs in the dataset.
 
 ## Notes
 
 - The mouse/"Whiskers" theme is intentional for fun and branding.
----
+- Roadmap items should stay scoped to incremental, testable improvements.

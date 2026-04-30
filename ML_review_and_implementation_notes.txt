@@ -1,0 +1,92 @@
+Whiskers ML Review + Implementation Notes
+=========================================
+
+Context from user:
+- Logs are regenerated often and sampled from recurring pools of safe/attacker IPs.
+- Supervised ML should not remain access-only; it should account for added auth/firewall logs.
+- Project goal is learning/demo quality, not production decision-making.
+
+Initial review conclusions (from subagent-assisted audit)
+---------------------------------------------------------
+
+1) Isolation Forest (normal vs hostile IP anomaly signal)
+- Main issue: model was fit and scored on the same current batch, making results highly batch-relative.
+- Small-IP runs (< min threshold) had weak fallback behavior due to percentile-only gating.
+- Cross-source aggregation can skew behavior (e.g., mixed access/auth/firewall populations).
+
+2) Supervised classifier (episode behavior + ground-truth labels)
+- Main issue: supervised alerts were not clearly surfaced in stats/check output.
+- Main issue: no persisted feature schema contract, so train/infer feature drift could break scoring.
+- Edge cases around one-class/small-class datasets could fail or become brittle.
+
+3) Feature engineering (shared baseline)
+- Functional baseline exists, but mostly coarse IP aggregates.
+- Better temporal/source-aware features are still a future improvement item.
+
+Implemented changes in this patch set
+-------------------------------------
+
+A) Supervised detector robustness (`detectors/ml_supervised.py`)
+- Added support for loading either:
+  - legacy artifact: raw model only
+  - new artifact bundle: {model, feature_columns, metadata}
+- Added feature alignment function:
+  - ensures inference columns match trained feature schema
+  - fills missing trained columns with 0.0
+  - enforces trained column ordering
+- Added safer probability extraction:
+  - handles standard multi-class/binary `predict_proba`
+  - handles one-class model outputs
+- Added fail-safe inference guard:
+  - catches model/feature mismatch exceptions
+  - skips supervised inference cleanly instead of crashing detection run
+
+B) Multi-source supervised training + schema contract (`analysis/train_supervised_ip_classifier.py`)
+- Training now reads from available log files:
+  - `data/access.log`
+  - `data/auth.log`
+  - `data/firewall.log`
+- Added dataset guards:
+  - requires both normal and malicious IPs
+  - requires at least 2 samples in the smallest class for stratified split
+- Enabled `class_weight="balanced"` in RandomForest for class skew handling.
+- Saved model as a bundle artifact containing:
+  - `model`
+  - `feature_columns`
+  - metadata (sources seen, row/IP counts, sklearn/python versions, label definition)
+
+C) Reporting visibility for supervised results (`analysis/stats.py`, `whiskers.py`)
+- Added `ml_supervised` into runtime count dictionaries.
+- Updated detection summary/reporting to explicitly include `ml_supervised`.
+- Added supervised check output line when supervised detections are present.
+- Avoided misleading check output by only printing supervised check line when count > 0.
+
+D) Isolation Forest low-sample fallback improvements (`detectors/ml_isolation.py`)
+- Added deterministic low-N fallback thresholds (when forest is not used):
+  - requests-per-minute threshold
+  - error-rate threshold
+  - path-scan-ratio threshold
+- Adjusted fallback confidence calibration slightly for low-N path.
+
+E) Documentation updates (`README.txt`)
+- Updated model artifact section to reflect supervised bundle behavior.
+- Clarified supervised training behavior uses available access/auth/firewall logs.
+
+Validation performed
+--------------------
+- Linter check on edited files: no errors.
+- Syntax validation with compileall on edited modules: passed.
+
+Current known follow-up opportunities (not required for this patch)
+-------------------------------------------------------------------
+- Persisted Isolation Forest baseline train/infer lifecycle (instead of per-batch fit+score).
+- Source-aware supervised models or source-conditioned features to reduce cross-source drift.
+- Expanded temporal/sequence feature engineering for richer episode-type separability.
+
+End state summary
+-----------------
+This patch improves ML robustness and usability for a learning-focused workflow:
+- supervised results are visible,
+- train/infer schema drift is guarded,
+- supervised training supports the multi-source reality of the project,
+- and anomaly detection handles very small IP populations more sensibly.
