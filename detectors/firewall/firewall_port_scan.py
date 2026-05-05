@@ -62,7 +62,6 @@ class FirewallPortScanDetector(BaseDetector):
         work = work.sort_values(["ip", "timestamp"]).reset_index(drop=True)
         gap = pd.Timedelta(seconds=self.session_gap_seconds)
 
-        # Sessionise per IP: a scan burst probes many destination ports quickly.
         for ip, group in work.groupby("ip"):
             group = group.sort_values("timestamp").reset_index(drop=True)
             session_start_idx = 0

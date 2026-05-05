@@ -170,6 +170,8 @@ class Whiskers:
         self.firewall_size: int | None = None
         self.size_values: list[int] = []
         self.gen_flag_order: list[str] = []
+        # True only while the REPL (`await_input`) runs `process_commands` (interactive hardening).
+        self._interactive_repl = False
 
     def init_log_sources(self) -> None:
         """Initialize configured source lists for each log family."""
@@ -201,10 +203,11 @@ class Whiskers:
             -d, --detect                    Run detection algorithms on all current logs
             -dac, --detect-access           Run detection algorithms on access.log (unless other path specified)
             -dauth, --detect-auth           Run detection algorithms on auth.log (unless other path specified)
+            -dfw, --detect-firewall         Run detection algorithms on firewall.log (unless other path specified)
             -v, --verbose                   Enable verbose output for detect. Shows all detected alerts with details instead of just summary counts.
             -al, --access-log [PATH]        Use a specific access log file instead of data/access.log
             -au, --auth-log [PATH]          Use a specific Linux auth log file instead of data/auth.log
-            -fw, --firewall-log [PATH]      Use a specific firewall log file instead of data/firewall.log (WIP)
+            -fw, --firewall-log [PATH]      Use a specific firewall log file instead of data/firewall.log
             
             Checking:
             -c, --check                     Check for accuracy of detection
@@ -411,7 +414,15 @@ class Whiskers:
 
     def await_input(self):
         """Run an interactive command loop for terminal usage."""
+        print(
+            "Interactive mode: only run Whiskers in a trusted environment; "
+            "`save` / `shred` require typing 'yes' to confirm."
+        )
         while True:
             user_input = input("Awaiting task for Whiskers...\n").lower()
             command = user_input.strip().split()
-            command_processing.process_commands(self, command)
+            self._interactive_repl = True
+            try:
+                command_processing.process_commands(self, command)
+            finally:
+                self._interactive_repl = False

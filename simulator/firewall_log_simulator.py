@@ -137,7 +137,7 @@ def firewall_blocked_ssh_bruteforce(
             src_port=random.randint(20000, 65535),
             packets=random.randint(1, 4),
             bytes_sent=random.randint(64, 420),
-            classification="firewall_blocked_ssh_bruteforce",
+            classification="firewall_ssh_bruteforce",
             count=count,
         )
         lines.append(line)
@@ -190,7 +190,7 @@ def firewall_denied_egress_exfiltration(
             src_port=random.randint(1024, 65535),
             packets=random.randint(40, 220),
             bytes_sent=random.randint(500_000, 12_000_000),
-            classification="firewall_denied_egress_exfiltration",
+            classification="firewall_egress_exfiltration",
             count=count,
         )
         lines.append(line)

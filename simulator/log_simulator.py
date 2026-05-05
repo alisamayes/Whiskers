@@ -68,9 +68,9 @@ def generate_logs(
         "auth_sudo_bruteforce": 0,
         "auth_privilege_escalation": 0,
         "firewall_port_scan": 0,
-        "firewall_blocked_ssh_bruteforce": 0,
+        "firewall_ssh_bruteforce": 0,
         "firewall_syn_flood": 0,
-        "firewall_denied_egress_exfiltration": 0,
+        "firewall_egress_exfiltration": 0,
     }
 
     profile_counts = {
@@ -225,16 +225,16 @@ def generate_logs(
                     attack_kind = random.choice(
                         [
                             "firewall_port_scan",
-                            "firewall_blocked_ssh_bruteforce",
+                            "firewall_ssh_bruteforce",
                             "firewall_syn_flood",
-                            "firewall_denied_egress_exfiltration",
+                            "firewall_egress_exfiltration",
                         ]
                     )
                     attack_counters[attack_kind] += 1
                     atk_ip = random.choice(IPS_ATTACK)
                     if attack_kind == "firewall_port_scan":
                         attack_fn = firewall_port_scan_attack
-                    elif attack_kind == "firewall_blocked_ssh_bruteforce":
+                    elif attack_kind == "firewall_ssh_bruteforce":
                         attack_fn = firewall_blocked_ssh_bruteforce
                     elif attack_kind == "firewall_syn_flood":
                         attack_fn = firewall_syn_flood_attack

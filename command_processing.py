@@ -92,7 +92,7 @@ def handle_generate(self, _command: list[str], _index: int) -> bool:
 @command_handler("-d", "--detect")
 def handle_detect(self, _command: list[str], _index: int) -> bool:
     self.run_detection = True
-    set_detect_sources(self, access=True, auth=True, firewall=False)
+    set_detect_sources(self, access=True, auth=True, firewall=True)
     return False
 
 
@@ -107,6 +107,13 @@ def handle_detect_access(self, _command: list[str], _index: int) -> bool:
 def handle_detect_auth(self, _command: list[str], _index: int) -> bool:
     self.run_detection = True
     set_detect_sources(self, access=False, auth=True, firewall=False)
+    return False
+
+
+@command_handler("-dfw", "--detect_firewall")
+def handle_detect_firewall(self, _command: list[str], _index: int) -> bool:
+    self.run_detection = True
+    set_detect_sources(self, access=False, auth=False, firewall=True)
     return False
 
 
@@ -146,9 +153,16 @@ def reset_parse_state(self) -> None:
 
 
 def set_detect_sources(self, *, access: bool, auth: bool, firewall: bool) -> None:
-    self.access_logs = [_ACCESS_SRC.copy()] if access else []
-    self.auth_logs = [_AUTH_SRC.copy()] if auth else []
-    self.firewall_logs = [_FIREWALL_SRC.copy()] if firewall else []
+    def keep_or_default(current: list[dict[str, str]], default_src: dict[str, str]) -> list[dict[str, str]]:
+        if current:
+            return [current[0].copy()]
+        return [default_src.copy()]
+
+    self.access_logs = keep_or_default(self.access_logs, _ACCESS_SRC) if access else []
+    self.auth_logs = keep_or_default(self.auth_logs, _AUTH_SRC) if auth else []
+    self.firewall_logs = (
+        keep_or_default(self.firewall_logs, _FIREWALL_SRC) if firewall else []
+    )
 
 
 def ensure_generate_sources(self) -> None:

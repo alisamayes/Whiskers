@@ -13,8 +13,10 @@ This script:
 
 from __future__ import annotations
 
+import hashlib
 import os
 import platform
+from pathlib import Path
 
 from parser.log_parser import parse_auth_logs, parse_firewall_logs, parse_logs
 
@@ -116,7 +118,12 @@ def main() -> None:
         },
     }
     joblib.dump(artifact, model_path)
+    model_p = Path(model_path)
+    digest = hashlib.sha256(model_p.read_bytes()).hexdigest()
+    hash_path = model_p.with_name(model_p.name + ".sha256")
+    hash_path.write_text(f"{digest}  {model_p.name}\n", encoding="utf-8")
     print(f"Saved supervised IP classifier bundle to {model_path}")
+    print(f"Wrote integrity hash to {hash_path}")
 
 
 if __name__ == "__main__":
