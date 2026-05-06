@@ -91,6 +91,12 @@ pip install -r requirements.txt
 python main.py [options]
 ```
 
+### Important: CLI runs, then REPL
+
+When you pass startup flags (like `-d`, `-g`, `-c`, etc.), Whiskers **runs the requested actions first** and then **drops into the interactive REPL** (`await_input`) for further commands.
+
+- Quit the REPL with **`q`**, **`quit`**, **`exit`**, **`-q`**, **`--quit`**, or **`--exit`**.
+
 ### Generate logs
 
 ```bash
@@ -149,40 +155,61 @@ python main.py
 General:
 -h, --help                      Show help
 -ui, --ui                       Open graphical user interface
-q, quit, exit                   Close Whiskers (interactive mode)
+q, quit, exit, -q, --quit       Close Whiskers (interactive mode)
+--exit                          Alias for quit/exit
 
 Generation:
 -gac, --generate_access         Generate access log (data/access.log)
 -gauth, --generate_auth         Generate auth log (data/auth.log)
 -gfire, --generate_firewall     Generate firewall log (data/firewall.log)
 -g, --generate                  Generate all configured log types
--s, --size [numbers]            Generation sizes (default: 2000)
+-s, --size [NUM ...]            Generation size value(s) (default: 2000)
+                                Provide 1+ positive integers after -s/--size.
+                                - If you provide 1 value, it applies to all selected generation flags.
+                                - If you provide multiple values, you must provide exactly one per selected
+                                  generation flag, in the same order as the generation flags were given
+                                  (e.g. `-gac -gauth -s 1000 500` maps access=1000, auth=500).
 
 Detection:
 -d, --detect                    Run detection on current logs
--dac, --detect-access           Detect access logs only
--dauth, --detect-auth           Detect auth logs only
+-dac, --detect_access           Detect access logs
+-dauth, --detect_auth           Detect auth logs
+-dfw, --detect_firewall         Detect firewall logs
 -v, --verbose                   Print detailed alert output
 -al, --access-log [PATH]        Use custom access log file
 -au, --auth-log [PATH]          Use custom auth log file
--fw, --firewall-log [PATH]      Use custom firewall log file
+-fw, --firewall-log [PATH]      Use custom firewall log file (PATH flag)
 
 Checking:
 -c, --check                     Compare generated-vs-detected attacks
 -as, --actor-stats              Show actor profile distribution
 
 File management commands:
-save [log_type] [filename] [directory]
-shred [filename] [directory]
+save [log_type] [filename] [directory(optional)]
+shred [log_type]
 ```
 
 ## Model artifacts
 
 - `models/ip_supervised_rf.joblib` (bundle with model + feature schema + metadata)
+- `models/ip_supervised_rf.joblib.sha256` (required integrity file; must match the `.joblib` SHA-256)
+
+Models are only loaded from **within the `models/` directory** (Whiskers refuses paths that resolve outside `models/`).
 
 Training script: `analysis/train_supervised_ip_classifier.py`
 - Trains from whichever of `data/access.log`, `data/auth.log`, `data/firewall.log` exist.
 - Requires both normal and malicious IPs in the dataset.
+
+## Safety & file operations
+
+Whiskers includes file operations for convenience, with guardrails:
+
+- **`save`**: copies the *currently configured* log source for `access` / `auth` / `firewall` to a destination path.
+  - The destination is constrained to stay within the Whiskers project root for relative paths (path traversal like `..` is rejected).
+  - In the interactive REPL, `save` requires typing **`yes`** to confirm (to reduce accidental overwrites).
+- **`shred`**: permanently deletes the *currently configured* source log file for the given `log_type`.
+  - `shred` ignores extra filename/directory arguments; it targets the configured source path for that log type.
+  - In the interactive REPL, `shred` requires typing **`yes`** to confirm (cannot be undone).
 
 ## Notes
 

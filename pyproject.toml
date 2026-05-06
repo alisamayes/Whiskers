@@ -1,7 +1,9 @@
-[tool.black]
+[tool.ruff]
 line-length = 88
-target-version = ["py311"]
+target-version = "py311"
 
-[tool.isort]
-profile = "black"
-line_length = 88
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.format]
+quote-style = "double"

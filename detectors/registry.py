@@ -59,7 +59,14 @@ class DetectorConfig:
 
 
 def build_default_detectors(cfg: DetectorConfig | None = None) -> List[BaseDetector]:
-    """Instantiate the project’s default detector set."""
+    """Instantiate the project's default detector set.
+
+    Args:
+        cfg: Optional detector configuration (defaults to `DetectorConfig()`).
+
+    Returns:
+        A list of detector instances covering access/auth/firewall and ML detectors.
+    """
     cfg = cfg or DetectorConfig()
     return [
         # access
@@ -107,6 +114,13 @@ def select_detectors_for_sources(
     - auth detectors: kind starts with "auth_"
     - firewall detectors: kind starts with "firewall_"
     - ML detectors: always included (kind starts with "ml_" or equals "ml_anomaly")
+
+    Args:
+        detectors: Detectors to filter.
+        enabled_sources: Enabled log family names (e.g. "access", "auth", "firewall").
+
+    Returns:
+        A filtered list of detectors to run for the enabled sources.
     """
     enabled = {s.lower().strip() for s in enabled_sources if s}
 

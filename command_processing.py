@@ -11,7 +11,14 @@ _COMMAND_HANDLERS: dict[str, Callable] = {}
 
 
 def command_handler(*aliases: str) -> Callable:
-    """Register a parse_commands handler for one or more command aliases."""
+    """Register a command handler for one or more aliases.
+
+    Args:
+        *aliases: Command tokens that should map to the decorated handler.
+
+    Returns:
+        A decorator that registers the handler in `_COMMAND_HANDLERS`.
+    """
 
     def decorator(func: Callable) -> Callable:
         for alias in aliases:
@@ -41,14 +48,32 @@ def handle_quit(_self, _command: list[str], _index: int) -> bool:
 
 @command_handler("save")
 def handle_save(self, command: list[str], _index: int) -> bool:
-    """Run the save command and stop further parsing."""
+    """Run the `save` command and stop further parsing.
+
+    Args:
+        self: Whiskers engine instance.
+        command: Full token list for the current command line.
+        _index: Index of the `save` token within `command`.
+
+    Returns:
+        True to stop further command parsing.
+    """
     save_logs(self, command[1:])
     return True
 
 
 @command_handler("shred")
 def handle_shred(self, command: list[str], _index: int) -> bool:
-    """Run the shred command and stop further parsing."""
+    """Run the `shred` command and stop further parsing.
+
+    Args:
+        self: Whiskers engine instance.
+        command: Full token list for the current command line.
+        _index: Index of the `shred` token within `command`.
+
+    Returns:
+        True to stop further command parsing.
+    """
     shred_logs(self, command[1:])
     return True
 
@@ -148,11 +173,33 @@ def handle_mouse(self, _command: list[str], _index: int) -> bool:
 
 
 def reset_parse_state(self) -> None:
+    """Reset per-command parse state used by the CLI option parser.
+
+    Args:
+        self: Whiskers engine instance.
+
+    Returns:
+        None
+    """
     self.gen_flag_order = []
     self.size_values = []
 
 
 def set_detect_sources(self, *, access: bool, auth: bool, firewall: bool) -> None:
+    """Enable/disable detector source families and ensure default log paths.
+
+    When a family is enabled and the current list is empty, this assigns a default
+    `data/*.log` source so detection has at least one configured input.
+
+    Args:
+        self: Whiskers engine instance.
+        access: Whether access logs should be included.
+        auth: Whether auth logs should be included.
+        firewall: Whether firewall logs should be included.
+
+    Returns:
+        None
+    """
     def keep_or_default(current: list[dict[str, str]], default_src: dict[str, str]) -> list[dict[str, str]]:
         if current:
             return [current[0].copy()]
@@ -166,6 +213,14 @@ def set_detect_sources(self, *, access: bool, auth: bool, firewall: bool) -> Non
 
 
 def ensure_generate_sources(self) -> None:
+    """Ensure generation has default output sources configured.
+
+    Args:
+        self: Whiskers engine instance.
+
+    Returns:
+        None
+    """
     if self.gen_auth and not self.auth_logs:
         self.auth_logs = [_AUTH_SRC.copy()]
     if self.gen_firewall and not self.firewall_logs:
@@ -173,11 +228,29 @@ def ensure_generate_sources(self) -> None:
 
 
 def record_gen_flag(self, name: str) -> None:
+    """Record generation flag order for mapping multiple `-s` sizes.
+
+    Args:
+        self: Whiskers engine instance.
+        name: Log family name (e.g. "access", "auth", "firewall").
+
+    Returns:
+        None
+    """
     if name not in self.gen_flag_order:
         self.gen_flag_order.append(name)
 
 
 def parse_commands(self, command: list[str]) -> None:
+    """Parse CLI tokens and update Whiskers runtime flags and sources.
+
+    Args:
+        self: Whiskers engine instance.
+        command: Token list (typically `sys.argv[1:]` or REPL-split input).
+
+    Returns:
+        None
+    """
     i = 0
     while i < len(command):
         arg = command[i].lower()
@@ -229,6 +302,14 @@ def parse_commands(self, command: list[str]) -> None:
 
 
 def run_generation_if_requested(self) -> None:
+    """Run log generation when generation flags were requested.
+
+    Args:
+        self: Whiskers engine instance.
+
+    Returns:
+        None
+    """
     if not self.gen_new:
         return
     ensure_generate_sources(self)
@@ -268,6 +349,14 @@ def run_generation_if_requested(self) -> None:
 
 
 def run_detection_if_requested(self) -> None:
+    """Run detection pipeline when detection flags were requested.
+
+    Args:
+        self: Whiskers engine instance.
+
+    Returns:
+        None
+    """
     if not self.run_detection:
         return
     print("\n=============== Running Detection ===============\n")
@@ -277,6 +366,14 @@ def run_detection_if_requested(self) -> None:
 
 
 def run_check_if_requested(self) -> None:
+    """Run check report when `--check` was requested.
+
+    Args:
+        self: Whiskers engine instance.
+
+    Returns:
+        None
+    """
     if not self.check:
         return
     print("\n=============== Running Checking ===============\n")
@@ -285,7 +382,15 @@ def run_check_if_requested(self) -> None:
 
 
 def process_commands(self, command):
-    """Parse command tokens, execute actions, and update Whiskers state."""
+    """Parse command tokens, execute actions, and update Whiskers state.
+
+    Args:
+        self: Whiskers engine instance.
+        command: Token list (CLI args or REPL command tokens).
+
+    Returns:
+        None
+    """
     reset_parse_state(self)
     parse_commands(self, command)
     run_generation_if_requested(self)
@@ -294,9 +399,16 @@ def process_commands(self, command):
 
 
 def process_size_commands(self, command, index):
-    """
-    Parse one-or-more integer values after -s/--size.
-    Returns (offset, ok), where offset is how many tokens were consumed after -s.
+    """Parse one-or-more integer values after `-s` / `--size`.
+
+    Args:
+        self: Whiskers engine instance.
+        command: Token list being parsed.
+        index: Index of the `-s`/`--size` token in `command`.
+
+    Returns:
+        A tuple `(offset, ok)` where `offset` is the number of size tokens consumed
+        after `-s`, and `ok` indicates whether parsing succeeded.
     """
     self.size_values = []
     j = index + 1
@@ -327,7 +439,18 @@ def process_size_commands(self, command, index):
 def resolve_generation_sizes(
     self, *, gen_access: bool, gen_auth: bool, gen_firewall: bool
 ) -> dict[str, int] | None:
-    """Resolve per-log generation sizes from parsed CLI options."""
+    """Resolve per-log generation sizes from parsed CLI options.
+
+    Args:
+        self: Whiskers engine instance.
+        gen_access: Whether access log generation is enabled.
+        gen_auth: Whether auth log generation is enabled.
+        gen_firewall: Whether firewall log generation is enabled.
+
+    Returns:
+        A dict mapping `{"access","auth","firewall"}` to size integers, or None if
+        the provided `-s/--size` values do not match the selected generation flags.
+    """
     selected = []
     if gen_access:
         selected.append("access")

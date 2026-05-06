@@ -13,20 +13,51 @@ class SecurityPathError(ValueError):
 
 
 def whiskers_root() -> Path:
-    """Directory containing ``main.py`` / this package (the Whiskers project root)."""
+    """Return the Whiskers project root directory.
+
+    Args:
+        None
+
+    Returns:
+        The directory containing the Whiskers package/module files.
+    """
     return Path(__file__).resolve().parent
 
 
+def whiskers_data_root(project_root: Path | None = None) -> Path:
+    """Return the absolute ``<root>/data`` directory path."""
+    root = (project_root or whiskers_root()).resolve()
+    return (root / "data").resolve()
+
+
+def ensure_under_directory(path: Path, allowed_root: Path, *, purpose: str) -> Path:
+    """Resolve and require that ``path`` lies under ``allowed_root``.
+
+    Returns the resolved path for convenience.
+    """
+    resolved = path.resolve()
+    root = allowed_root.resolve()
+    if resolved == root:
+        raise SecurityPathError(f"{purpose}: path resolves to the directory itself.")
+    if not resolved.is_relative_to(root):
+        raise SecurityPathError(f"{purpose}: path must be under {root}.")
+    return resolved
+
+
 def safe_output_path_for_save(project_root: Path, args: list[str]) -> Path:
-    """Resolve destination path for ``save`` (CLI or GUI).
+    """Resolve a safe destination path for the `save` command.
 
-    ``args`` is ``[log_type, filename]`` or ``[log_type, filename, directory]`` (same
-    as ``save_logs``).
+    Args:
+        project_root: Whiskers project root directory.
+        args: `save` arguments in one of these forms:
+            - `[log_type, filename]`
+            - `[log_type, filename, directory]`
 
-    * Two-arg form with an absolute second token (GUI save-as): destination is that path.
-    * Two-arg form with a relative second token: under ``<root>/data/`` (no ``..`` escape).
-    * Three-arg form: directory is relative to project root; filename is a single path
-      component; result must stay under that directory and under the project root.
+    Returns:
+        An absolute destination path for the saved output.
+
+    Raises:
+        SecurityPathError: If the resolved output path would escape `project_root`.
     """
     root = project_root.resolve()
     if len(args) == 2:
@@ -59,7 +90,18 @@ def safe_output_path_for_save(project_root: Path, args: list[str]) -> Path:
 
 
 def resolve_models_file(model_path: str, *, project_root: Path | None = None) -> Path:
-    """Resolve a model path to an absolute path that must lie under ``<root>/models``."""
+    """Resolve a model path to an absolute path under `<root>/models`.
+
+    Args:
+        model_path: Model path string (absolute or relative).
+        project_root: Optional project root override (defaults to `whiskers_root()`).
+
+    Returns:
+        The resolved absolute path for the model file.
+
+    Raises:
+        SecurityPathError: If the resolved path does not lie under `<root>/models`.
+    """
     root = (project_root or whiskers_root()).resolve()
     models_root = (root / "models").resolve()
     p = Path(model_path)
@@ -79,7 +121,14 @@ def resolve_models_file(model_path: str, *, project_root: Path | None = None) ->
 
 
 def read_expected_sha256(sha_path: Path) -> str:
-    """Read hex digest from a GNU-style ``sha256sum`` file."""
+    """Read a hex digest from a GNU-style `sha256sum` file.
+
+    Args:
+        sha_path: Path to the `.sha256` file.
+
+    Returns:
+        The expected SHA-256 digest as a 64-character lowercase hex string.
+    """
     raw = sha_path.read_text(encoding="utf-8").strip().split()
     if not raw:
         raise ValueError(f"Empty hash file: {sha_path}")
@@ -90,13 +139,28 @@ def read_expected_sha256(sha_path: Path) -> str:
 
 
 def verify_file_sha256(file_path: Path, expected_hex: str) -> bool:
-    """Return True if SHA-256 of file matches ``expected_hex``."""
+    """Verify a file's SHA-256 digest matches the expected hex string.
+
+    Args:
+        file_path: Path to the file to hash.
+        expected_hex: Expected SHA-256 hex digest.
+
+    Returns:
+        True if the computed digest matches `expected_hex`, otherwise False.
+    """
     digest = hashlib.sha256(file_path.read_bytes()).hexdigest().lower()
     return digest == expected_hex.lower()
 
 
 def secure_load_supervised_bundle(model_file: Path) -> Any:
-    """Load a joblib bundle only if a sibling ``.joblib.sha256`` matches the file."""
+    """Load a joblib bundle only if an adjacent SHA-256 file validates it.
+
+    Args:
+        model_file: Path to the `.joblib` model bundle.
+
+    Returns:
+        The loaded joblib object if integrity validation succeeds, otherwise None.
+    """
     import joblib
 
     hash_path = model_file.with_name(model_file.name + ".sha256")

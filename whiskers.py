@@ -12,7 +12,14 @@ from simulator.log_simulator import generate_logs
 
 
 def normalize_timestamps_utc(df: pd.DataFrame) -> pd.DataFrame:
-    """Normalize ``timestamp`` to timezone-aware UTC for all log sources."""
+    """Normalize the `timestamp` column to timezone-aware UTC.
+
+    Args:
+        df: Input dataframe that may include a `timestamp` column.
+
+    Returns:
+        A dataframe where `timestamp` is converted to UTC when present.
+    """
     if df.empty or "timestamp" not in df.columns:
         return df
     out = df.copy()
@@ -23,7 +30,14 @@ def normalize_timestamps_utc(df: pd.DataFrame) -> pd.DataFrame:
 
 class Whiskers:
     def __init__(self, args):
-        """Initialize runtime state, detectors, and process startup arguments."""
+        """Initialize runtime state, detectors, and startup arguments.
+
+        Args:
+            args: Startup argument list, typically `sys.argv[1:]`.
+
+        Returns:
+            None
+        """
         # Avoid Windows console UnicodeEncodeError when printing banner art.
         # (PowerShell/terminal encoding can be cp1252; we prefer UTF-8 with replacement.)
         try:
@@ -156,7 +170,14 @@ class Whiskers:
         command_processing.process_commands(self, args)
 
     def init_runtime_flags(self) -> None:
-        """Initialize mutable runtime state for CLI and GUI operations."""
+        """Initialize mutable runtime state for CLI and GUI operations.
+
+        Args:
+            None
+
+        Returns:
+            None
+        """
         self.mode = "normal"
         self.check = False
         self.gen_new = False
@@ -174,7 +195,14 @@ class Whiskers:
         self._interactive_repl = False
 
     def init_log_sources(self) -> None:
-        """Initialize configured source lists for each log family."""
+        """Initialize configured source lists for each log family.
+
+        Args:
+            None
+
+        Returns:
+            None
+        """
         # each entry: {"name": str, "path": str, "format": str}
         self.access_logs: list[dict[str, str]] = [
             #  {"name": "access", "path": "data/access.log", "format": "access"}
@@ -183,7 +211,14 @@ class Whiskers:
         self.auth_logs: list[dict[str, str]] = []
 
     def show_help(self):
-        """Print CLI usage, flags, and auxiliary file-management commands."""
+        """Print CLI usage, flags, and auxiliary file-management commands.
+
+        Args:
+            None
+
+        Returns:
+            None
+        """
         help_text = """         Startup Usage: python main.py [options]
             OPTIONS:
 
@@ -214,17 +249,28 @@ class Whiskers:
             -as, --actor-stats              Show distribution of actor profiles in the generated logs
 
             Log managment:
-            save [log_type] [filename] [directory]
+            save [log_type] [filename] [directory] [--overwrite] [--allow-absolute] [--force]
                                             Save the currently configured source for
                                             access/auth/firewall to a new file.
-            shred [filename] [directory]    Delete a log file that is no longer needed (default directory is ./data/)
+                                            By default, refuses overwriting existing files and refuses saving
+                                            outside <repo>/data unless explicitly allowed.
+            shred [log_type] [--force] [--allow-outside-data]
+                                            Delete the currently configured log source file for the given type.
+                                            By default, only allows deleting files under <repo>/data.
                     
         """
 
         print(help_text)
 
     def prepare_dataframe(self):
-        """Load configured log files into a dataframe and compute features."""
+        """Load configured log files into a dataframe and compute features.
+
+        Args:
+            None
+
+        Returns:
+            None
+        """
         from parser.log_parser import parse_auth_logs, parse_firewall_logs, parse_logs
 
         frames = []
@@ -247,7 +293,14 @@ class Whiskers:
         self.features = feature_engineering.basic_aggregate_features(self.df)
 
     def run_detection_models(self):
-        """Execute all detectors against the current dataframe and print results."""
+        """Execute all enabled detectors against the current dataframe.
+
+        Args:
+            None
+
+        Returns:
+            A formatted detection summary string from `report_detection_stats`.
+        """
         # Reset detected counts so a new run doesn't carry over prior results
         for kind in self.detected_attack_counts:
             self.detected_attack_counts[kind] = 0
@@ -286,7 +339,18 @@ class Whiskers:
         gen_auth: bool | None = None,
         gen_firewall: bool | None = None,
     ) -> dict:
-        """Run simulator generation and synchronize engine state from one result object."""
+        """Generate simulated logs and synchronize engine state from the result.
+
+        Args:
+            sizes: Per-log-type action counts used by the simulator.
+            users: Number of simulated users (actor pool size).
+            gen_access: Override access log generation flag (defaults to `self.gen_access`).
+            gen_auth: Override auth log generation flag (defaults to `self.gen_auth`).
+            gen_firewall: Override firewall log generation flag (defaults to `self.gen_firewall`).
+
+        Returns:
+            The raw result dictionary returned by `generate_logs`.
+        """
         result = generate_logs(
             sizes,
             users,
@@ -309,13 +373,27 @@ class Whiskers:
         return result
 
     def run_detection_pipeline(self) -> str:
-        """Prepare data, refresh true counts, and execute all detectors."""
+        """Prepare data, refresh true counts, and execute all detectors.
+
+        Args:
+            None
+
+        Returns:
+            A formatted detection summary string.
+        """
         self.prepare_dataframe()
         self.update_true_attack_counts_from_df()
         return self.run_detection_models()
 
     def run_check_report(self) -> str:
-        """Build and return the check report from current engine state."""
+        """Build and return the check report from current engine state.
+
+        Args:
+            None
+
+        Returns:
+            A formatted check report string from `report_check_stats`.
+        """
         return report_check_stats(
             self.true_attack_counts,
             self.detected_attack_counts,
@@ -331,6 +409,12 @@ class Whiskers:
         The log generator tags each attack instance with a `count` value, so each
         unique `count` within an attack classification corresponds to a single
         generated attack instance.
+
+        Args:
+            None
+
+        Returns:
+            None
         """
         if not hasattr(self, "df") or self.df is None or self.df.empty:
             for key in self.true_attack_counts:
@@ -345,7 +429,14 @@ class Whiskers:
                 self.true_attack_counts[key] = int(attack_logs["count"].nunique())
 
     def open_ui(self) -> None:
-        """Open the Qt UI, creating the GUI thread if needed."""
+        """Open the Qt UI, creating the GUI thread if needed.
+
+        Args:
+            None
+
+        Returns:
+            None
+        """
         with self.gui_lock:
             need_start = self.gui_thread is None or not self.gui_thread.is_alive()
             if need_start:
@@ -368,7 +459,14 @@ class Whiskers:
             print("Whiskers UI is not available.")
 
     def run_gui_thread(self) -> None:
-        """Run the Qt event loop in a dedicated thread."""
+        """Run the Qt event loop in a dedicated thread.
+
+        Args:
+            None
+
+        Returns:
+            None
+        """
         from PyQt6.QtWidgets import QApplication
 
         from GUI.main_window import ApplicationWindow, UiBridge, load_window_icon
@@ -413,7 +511,14 @@ class Whiskers:
         self.app.exec()
 
     def await_input(self):
-        """Run an interactive command loop for terminal usage."""
+        """Run an interactive command loop for terminal usage.
+
+        Args:
+            None
+
+        Returns:
+            None
+        """
         print(
             "Interactive mode: only run Whiskers in a trusted environment; "
             "`save` / `shred` require typing 'yes' to confirm."

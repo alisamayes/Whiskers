@@ -1,19 +1,47 @@
 # Allows Whiskers agent to save generated logs to a file for later parsing and analysis.
 import os
 import shutil
+from pathlib import Path
 
-from path_security import SecurityPathError, safe_output_path_for_save, whiskers_root
+from path_security import (
+    SecurityPathError,
+    ensure_under_directory,
+    safe_output_path_for_save,
+    whiskers_data_root,
+    whiskers_root,
+)
 
 
-def _interactive_confirm(whiskers_agent, prompt: str) -> bool:
-    """Require explicit ``yes`` in the REPL for file operations (finding 7 mitigation)."""
-    if not getattr(whiskers_agent, "_interactive_repl", False):
-        return True
-    try:
-        answer = input(f"{prompt} Type 'yes' to confirm: ").strip().lower()
-    except EOFError:
-        return False
-    return answer == "yes"
+def _split_args_and_flags(args: list[str]) -> tuple[list[str], set[str]]:
+    """Return (positional_args, flags) where flags are lowercase tokens like '--force'."""
+    pos: list[str] = []
+    flags: set[str] = set()
+    for a in args:
+        if isinstance(a, str) and a.startswith("--"):
+            flags.add(a.strip().lower())
+        else:
+            pos.append(a)
+    return pos, flags
+
+
+def _is_interactive_repl(whiskers_agent) -> bool:
+    return bool(getattr(whiskers_agent, "_interactive_repl", False))
+
+
+def _require_confirm_or_force(
+    whiskers_agent,
+    prompt: str,
+    *,
+    force: bool,
+) -> bool:
+    """Require explicit confirmation in REPL, or `--force` when non-interactive."""
+    if _is_interactive_repl(whiskers_agent):
+        try:
+            answer = input(f"{prompt} Type 'yes' to confirm: ").strip().lower()
+        except EOFError:
+            return False
+        return answer == "yes"
+    return force
 
 
 def save_logs(whiskers_agent, args):
@@ -23,7 +51,12 @@ def save_logs(whiskers_agent, args):
         whiskers_agent: Active Whiskers instance holding configured log paths.
         args: [log_type, filename] or [log_type, filename, directory].
     """
-    if len(args) < 2 or len(args) > 3:
+    raw_args, flags = _split_args_and_flags(list(args))
+    allow_absolute = "--allow-absolute" in flags
+    overwrite = "--overwrite" in flags
+    force = "--force" in flags or "--yes" in flags
+
+    if len(raw_args) < 2 or len(raw_args) > 3:
         print(
             "Use: save [log_type] [filename] [directory(optional)] "
             "e.g. 'save access archived_access.log' or "
@@ -31,15 +64,8 @@ def save_logs(whiskers_agent, args):
         )
         return
 
-    if not _interactive_confirm(
-        whiskers_agent,
-        "Save a copy of the configured log (possible overwrite at destination).",
-    ):
-        print("Save cancelled.")
-        return
-
-    log_type = args[0].lower().strip()
-    if not args[1].strip():
+    log_type = raw_args[0].lower().strip()
+    if not raw_args[1].strip():
         print("Filename or destination path is empty.")
         return
 
@@ -60,22 +86,76 @@ def save_logs(whiskers_agent, args):
     if not source_path:
         print(f"{log_type} log source path is empty.")
         return
-    if not os.path.exists(source_path):
-        print(f"Source log file does not exist: {source_path}")
-        return
 
     root = whiskers_root()
+    source_file = Path(source_path)
+    if not source_file.is_absolute():
+        source_file = (root / source_file).resolve()
+    if not source_file.exists():
+        print(f"Source log file does not exist: {source_file}")
+        return
+
+    data_root = whiskers_data_root(root)
     try:
-        file_path = safe_output_path_for_save(root, args)
+        file_path = safe_output_path_for_save(root, raw_args)
     except SecurityPathError as e:
         print(f"Refusing save: {e}")
         return
 
+    # Default hardening:
+    # - refuse absolute destinations unless explicitly allowed
+    # - refuse writing outside <root>/data unless explicitly allowed
+    # - refuse overwriting existing files unless explicitly allowed
     try:
-        parent = os.path.dirname(file_path)
+        dest_path = os.fspath(file_path)
+    except TypeError:
+        dest_path = str(file_path)
+
+    is_abs = os.path.isabs(dest_path)
+    under_data = True
+    try:
+        ensure_under_directory(file_path, data_root, purpose="Save destination")
+    except SecurityPathError:
+        under_data = False
+
+    # Absolute paths are allowed if they still lie under <root>/data.
+    if is_abs and not under_data and not allow_absolute:
+        print(
+            "Refusing save: absolute destination paths outside the Whiskers data directory "
+            "are disabled by default. Use --allow-absolute to permit."
+        )
+        return
+
+    if not under_data and not allow_absolute:
+        print(
+            f"Refusing save: destination must be under {data_root} by default. "
+            "Use --allow-absolute to permit saving elsewhere."
+        )
+        return
+
+    if os.path.exists(dest_path) and not overwrite:
+        print(
+            "Refusing save: destination file already exists. "
+            "Use --overwrite to replace it."
+        )
+        return
+
+    # For riskier operations (overwrite or saving outside data), require explicit confirmation
+    # in REPL or --force when invoked via startup args / non-interactive paths.
+    risky = os.path.exists(dest_path) or (is_abs or not under_data)
+    if risky and not _require_confirm_or_force(
+        whiskers_agent,
+        "This save may overwrite a file or write outside the default data directory.",
+        force=force,
+    ):
+        print("Save cancelled.")
+        return
+
+    try:
+        parent = os.path.dirname(dest_path)
         if parent and not os.path.exists(parent):
             os.makedirs(parent, exist_ok=True)
-        shutil.copyfile(source_path, file_path)
+        shutil.copyfile(os.fspath(source_file), dest_path)
     except OSError as e:
         print(f"Save failed: {e}")
         return
@@ -90,18 +170,15 @@ def shred_logs(whiskers_agent, args):
         whiskers_agent: Active Whiskers instance holding configured log paths.
         args: [log_type] or [log_type, ...] (see CLI / GUI); shred targets configured source path only.
     """
-    if len(args) == 0:
+    raw_args, flags = _split_args_and_flags(list(args))
+    force = "--force" in flags or "--yes" in flags
+    allow_outside_data = "--allow-outside-data" in flags
+
+    if len(raw_args) == 0:
         print("No arguments provided. Check help info for guidance.")
         return
 
-    if not _interactive_confirm(
-        whiskers_agent,
-        "Permanently delete the configured log file for this type (cannot be undone).",
-    ):
-        print("Shred cancelled.")
-        return
-
-    log_type = args[0].lower().strip()
+    log_type = raw_args[0].lower().strip()
     source_attr = {
         "access": "access_logs",
         "auth": "auth_logs",
@@ -121,11 +198,45 @@ def shred_logs(whiskers_agent, args):
         print(f"{log_type} log source path is empty.")
         return
 
-    if os.path.exists(source_path):
-        os.remove(source_path)
-        print(
-            f"Agent Whiskers has shredded the file {source_path}. "
-            "All evidence has been erased. The cheese is safe."
+    if not _require_confirm_or_force(
+        whiskers_agent,
+        "Permanently delete the configured log file for this type (cannot be undone).",
+        force=force,
+    ):
+        print("Shred cancelled.")
+        return
+
+    root = whiskers_root()
+    data_root = whiskers_data_root(root)
+    source_file = Path(source_path)
+    if not source_file.is_absolute():
+        source_file = (root / source_file).resolve()
+    if not source_file.exists():
+        print(f"Log file {source_file} does not exist.")
+        return
+
+    try:
+        resolved_source = ensure_under_directory(
+            source_file,
+            data_root,
+            purpose="Shred target",
         )
-    else:
-        print(f"Log file {source_path} does not exist.")
+    except SecurityPathError as e:
+        if not allow_outside_data:
+            print(
+                f"Refusing shred: {e} "
+                "(default boundary is <repo>/data; use --allow-outside-data to bypass)."
+            )
+            return
+        resolved_source = source_file.resolve()
+
+    try:
+        os.remove(os.fspath(resolved_source))
+    except OSError as e:
+        print(f"Shred failed: {e}")
+        return
+
+    print(
+        f"Agent Whiskers has shredded the file {resolved_source}. "
+        "All evidence has been erased. The cheese is safe."
+    )

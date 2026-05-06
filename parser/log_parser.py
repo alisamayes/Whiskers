@@ -86,7 +86,16 @@ def finalize_dataframe(
     timestamp_col: str = "timestamp",
     timestamp_format: str | None = None,
 ) -> pd.DataFrame:
-    """Build dataframe, normalize timestamps, drop invalid rows, and sort."""
+    """Build a dataframe from parsed rows and normalize timestamps.
+
+    Args:
+        rows: Parsed row dictionaries to load into a dataframe.
+        timestamp_col: Column name to parse/sort by.
+        timestamp_format: Optional explicit timestamp format for parsing.
+
+    Returns:
+        A dataframe with normalized timestamps and invalid rows dropped.
+    """
     df = pd.DataFrame(rows)
     if df.empty or timestamp_col not in df.columns:
         return df
@@ -132,6 +141,27 @@ def auth_row(
     auth_user: str | None = None,
     ssh_port: int | None = None,
 ) -> dict:
+    """Build one common-schema auth row.
+
+    Args:
+        ip: Source IP address.
+        timestamp: Event timestamp (timezone-aware).
+        method: High-level method label (e.g. "SSH", "SUDO").
+        path: Synthetic event id (e.g. "ssh/failed_password").
+        status: Integer status code (used by feature engineering).
+        agent: Agent string (e.g. "sshd", "sudo").
+        classification: Whiskers classification label (e.g. "normal").
+        log_source: Source family name (e.g. "auth").
+        referer: Optional secondary field (used for sudo target user).
+        bytes_sent: Bytes sent (default 0; kept for schema compatibility).
+        count: Attack instance id (default 0; used by generators/checking).
+        service: Optional service name (e.g. "sshd", "sudo").
+        auth_user: Optional username extracted from the event.
+        ssh_port: Optional SSH port extracted from the event.
+
+    Returns:
+        A row dictionary compatible with the common Whiskers schema.
+    """
     row = {
         "ip": ip,
         "timestamp": timestamp,
@@ -231,6 +261,16 @@ def parse_sshd_body(body: str, ts: pd.Timestamp, log_source: str) -> dict | None
 
 
 def parse_sudo_body(body: str, ts: pd.Timestamp, log_source: str) -> dict | None:
+    """Map a sudo log message body to one common-schema row.
+
+    Args:
+        body: Raw sudo message body (syslog payload after `sudo:`).
+        ts: Parsed timestamp for the event.
+        log_source: Source family label for the resulting row.
+
+    Returns:
+        A row dict for supported sudo events, or None when the message is skipped.
+    """
     m = _SUDO_COMMAND.match(body.strip())
     if m:
         invoking, target_user, _ = m.groups()
@@ -334,6 +374,16 @@ def parse_auth_logs(file, source: str = "auth"):
 
 
 def parse_logs(file, source: str = "access", *, quiet: bool = False):
+    """Parse access logs into the common Whiskers schema.
+
+    Args:
+        file: Path to the access log file.
+        source: Source family name to assign into `log_source`.
+        quiet: If False, print non-matching lines for debugging.
+
+    Returns:
+        A dataframe in the common Whiskers schema.
+    """
 
     logs = []
     lines, _ = read_text_lines_safe(file, quiet=quiet)

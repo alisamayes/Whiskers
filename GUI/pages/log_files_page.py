@@ -6,6 +6,9 @@ Moved from `GUI/file_manager.py` to avoid confusing it with `simulator/file_mana
 
 from __future__ import annotations
 
+import os
+from pathlib import Path
+
 from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtWidgets import (
     QFileDialog,
@@ -18,6 +21,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from path_security import SecurityPathError, ensure_under_directory, whiskers_data_root, whiskers_root
 from simulator.file_manager import save_logs, shred_logs
 
 _DEFAULT_SOURCES = {
@@ -143,17 +147,51 @@ class FileSelector(QWidget):
             self.data["path"],
             "Log Files (*.log *.txt);;All Files (*.*)",
         )
-        if selected_path:
-            save_logs(self.whiskers, [self.log_type, selected_path])
+        if not selected_path:
+            return
+
+        root = whiskers_root()
+        data_root = whiskers_data_root(root)
+        dest = Path(selected_path)
+
+        flags: list[str] = ["--force"]
+
+        # If saving outside <root>/data, require explicit confirmation and pass allow flag.
+        try:
+            ensure_under_directory(dest, data_root, purpose="Save destination")
+        except SecurityPathError:
+            outside = QMessageBox.question(
+                self,
+                "Save outside Whiskers data?",
+                f"This destination is outside Whiskers' default data directory:\n\n"
+                f"{data_root}\n\n"
+                f"Do you want to allow saving to:\n{selected_path}\n\n"
+                "If you proceed, Whiskers will permit an absolute/outside-data destination for this save.",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+            if outside != QMessageBox.StandardButton.Yes:
+                return
+            flags.append("--allow-absolute")
+
+        # If file exists, require explicit overwrite confirmation.
+        if os.path.exists(selected_path):
+            ow = QMessageBox.question(
+                self,
+                "Overwrite existing file?",
+                f"The destination file already exists:\n\n{selected_path}\n\nOverwrite it?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+            if ow != QMessageBox.StandardButton.Yes:
+                return
+            flags.append("--overwrite")
+
+        save_logs(self.whiskers, [self.log_type, selected_path, *flags])
 
     def shred_FE(self) -> None:
         """Delete a log file with confirmation."""
-        selected_path, _ = QFileDialog.getOpenFileName(
-            self,
-            f"Shred {self.data['name']} log file",
-            self.data["path"],
-            "Log Files (*.log *.txt);;All Files (*.*)",
-        )
+        selected_path = self.data.get("path", "")
         confirmation = QMessageBox.question(
             self,
             f"Shred {self.data['name']} log file",
@@ -162,4 +200,4 @@ class FileSelector(QWidget):
             QMessageBox.StandardButton.No,
         )
         if confirmation == QMessageBox.StandardButton.Yes:
-            shred_logs(self.whiskers, [self.log_type, selected_path])
+            shred_logs(self.whiskers, [self.log_type, "--force"])

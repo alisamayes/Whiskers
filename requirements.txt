@@ -1,5 +1,6 @@
 pandas
 numpy
+pydantic>=2
 scikit-learn
 joblib
 PyQt6
